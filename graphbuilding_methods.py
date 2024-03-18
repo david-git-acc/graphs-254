@@ -22,85 +22,134 @@ class Graph():
         
         # Set the arrowsize - the size of the arrows for directed edges
         self.arrowsize = arrowsize
+        
+    # Create adjacency list for the graph
+    def adjacency_list(self):
+        
+        # Instantiate empty adjacancy list (set)
+        adjacency_list = {}
+        
+        for vertex_name, vertex in list( self.V.items() ):
+            
+            # Get the names of all vertices adjacent to this vertex
+            vertex_edges = list( vertex.edges.keys() )
+            
+            # Update the adjacency list accordingly
+            adjacency_list.update({ vertex_name : vertex_edges })
+            
+        # Provide the list back
+        return adjacency_list
+            
+      
+    # Add an edge to the graph. both is used for bi-directional edges
+    # Also consider the weight of the edge so we can add that as well
+    def add_edge(self, source_name : str, destination_name : str, both : bool = False, weight : float = None):
+        
+        # Add the edges using our directed edge function
+        self.add_directed_edge( source_name, destination_name, weight)
+        
+        # If both edges exist then we remove the arrows
+        if both: 
+            
+            # First add the other directed edge
+            self.add_directed_edge( destination_name, source_name, weight)
+            
+            # Get both the edges
+            AtoB : Edge = self.E.get((source_name, destination_name))
+            BtoA : Edge  = self.E.get((destination_name, source_name))
+            
+            # Get the source and destination vertices
+            sourcev = self.V.get(source_name)
+            destv = self.V.get(destination_name)
+            
+            # Create the straight line
+            visual_edge = self.ax.plot([sourcev.x,destv.x], [sourcev.y,destv.y], 
+                                        linewidth = 1, color="black", zorder=0)[0]
+            
+            # Delete the original arrows so we can replace it with the straight line
+            AtoB.plot_remove()
+            
+            # Swap the visual representation with the new edge for the first edge connection
+            AtoB.plotrep["visual"] = visual_edge
+            
+            # Same as above but vice versa
+            BtoA.plot_remove()
+            BtoA.plotrep["visual"] = visual_edge
+            
+            # Then re-add the edgeweight
+            AtoB.add_edgeweight()
+            
     
-    # Add an edge to the graph
-    def add_edge(self, source_name : str, destination_name : str, both : bool = False, visual_edge = None):
+    # Add a directed edge to the graph - may or may not have an edgeweight attached
+    def add_directed_edge(self, source_name : str, destination_name : str , weight : float = None):
         
         # Get the vertices to do the edge-adding
         sourcev : Vertex = self.V.get(source_name)
         destv : Vertex = self.V.get(destination_name)
         
-        # If we have an undirected edge (both) and we haven't yet instantiated the edge (don't want to draw twice) 
-        if both and visual_edge is None:
-            # Create the edge visualisation
-            visual_edge = self.ax.plot([sourcev.x,destv.x], [sourcev.y,destv.y], 
-                                        linewidth = 1, color="black", zorder=0)[0]
-            
-            # Add the edge from the source vertex to the destination vertex 
-            sourcev.add_edge(destv, visual_edge)
-            
-            # Recursively do the same for the other way around
-            self.add_edge(destination_name, source_name, True, visual_edge)
-            
-        # Otherwise if we have an undirected edge (both) but we're on the second step, we use the same reference to the 
-        # visual edge as we did before
-        elif both and visual_edge is not None:
-            
-            # Then we must've already added the first edge connection so we will add the other direction now
-            sourcev.add_edge(destv, visual_edge)
-        
-        # Otherwise we have a directed edge
-        else:
-            
-            # Get the location differences so the arrows are placed correctly
-            # This is calculated mathematically (on paper) and then input into this program
-            X_location_diff = ( sourcev.radius + self.arrowsize ) * np.cos(np.angle((destv.y-sourcev.y)*1j + (destv.x-sourcev.x)))
-            Y_location_diff = ( sourcev.radius + self.arrowsize ) * np.sin(np.angle((destv.y-sourcev.y)*1j + (destv.x-sourcev.x)))
-            
-            # The dx and dys will be used to point the arrow in the correct direction - the change in the x and y coords
-            dx = destv.x - sourcev.x - X_location_diff
-            dy = destv.y - sourcev.y - Y_location_diff
-            
-            # Create the arrow for the visual representation of the directed edge
-            visual_edge = plt.arrow(sourcev.x, sourcev.y, dx, dy, 
-                        color="black", 
-                        head_length = self.arrowsize, 
-                        head_width = self.arrowsize, 
-                        linewidth=0.25,
-                        zorder=0)
-            
-            # Then add the directed edge to the graph structure
-            sourcev.add_edge(destv, visual_edge)
-        
-            
-            
-        
+        # If the edge already exists, ignore
+        if self.E.get((source_name, destination_name)) is not None: return
 
+        # Create an arrow axes object for use
+        visual_edge = create_directed_edge_arrow(sourcev.x, sourcev.y, destv.x, destv.y, 
+                                                    sourcev.radius, self.arrowsize, self.ax)
         
+        # Then add the directed edge to the graph structure
+        sourcev.add_edge(destv, visual_edge, weight=weight)
         
+    
+    # Remove an edge from the graph; both states where it should be a bidirectional removal or just one
+    def remove_edge(self, source_name, destination_name, both=False):
         
+        self.remove_directed_edge(source_name, destination_name)
         
+        # If we want to delete both sides then remove from B to A as well
+        if both: self.remove_directed_edge(destination_name, source_name)
+            
     # Remove an edge from the graph and its representation
-    def delete_edge(self, source_name, destination_name, both=False ) -> None:
+    def remove_directed_edge(self, source_name, destination_name ) -> None:
         
         # Get the vertex whose edge will be deleted
         source_vertex : Vertex = self.V.get(source_name)
         
         # Get the edge itself
-        the_edge : Edge = self.E[(source_name, destination_name)]
+        the_edge : Edge = self.E.get( (source_name, destination_name) )
+        
+        # Get the destination vertex 
+        dest_vertex : Vertex = the_edge.destination
+        
+        # Make sure the edge exists
+        if the_edge is None: return
         
         # Remove the edge from the plot representation
         the_edge.plot_remove()
         
+        # Get the other edge for use later
+        other_edge : Edge = self.E.get((destination_name, source_name))
+        
+        # If it's None then it doesn't exist, but if it isn't None then the edge does exist and must be compensated
+        if other_edge is not None:
+            print("not none",source_name, destination_name)
+
+            # Create a directed edge to account for this
+            visual_edge = create_directed_edge_arrow(dest_vertex.x, dest_vertex.y, 
+                                                        source_vertex.x, source_vertex.y, 
+                                                        source_vertex.radius, self.arrowsize, 
+                                                        self.ax)
+            
+            # Now change its visual references to be the new visual edge
+            other_edge.plotrep.update({"visual" : visual_edge })
+            
+            # Add its edgeweight back again
+            other_edge.add_edgeweight()
+            
+            print(source_name, destination_name, list(the_edge.plotrep.keys()))
+        
         # Delete all references to the edge so it is eligible for garbage collection
-        del the_edge
+        del self.E[(source_name, destination_name)]
         del source_vertex.edges[destination_name]
         
-        # If it's a bidirectional edge we have to remove the other one as well
-        if both:
-            # Then delete the mirror edge, where the destination and source switch places
-            self.delete_edge(self, destination_name, source_name, both=False)
-    
+        
     # # Remove a vertex from the graph and its representation
     # def delete_vertex(self, vertex_name):
         
@@ -123,14 +172,18 @@ class Vertex():
     # Add a destination edge to our vertex
     # destination is the destination vertex (bug in mypy prevents me from adding type hints)
     # visual_edge is the actual plotted edge on the plot
-    def add_edge(self, dest, visual_edge):
+    # weight is the float weight assigned to the edge
+    def add_edge(self, dest, visual_edge, weight : float = None):
         
         # Instantiate the edge
-        edge = Edge(self, dest)
+        edge = Edge(self, dest, weight)
         
         # The edge will now have its visual representation linked to it
         edge.plotrep.update({ "visual" : visual_edge })
         
+        # Add the weight of the edge
+        edge.add_edgeweight()
+
         # Add the edge to our list of edges
         self.edges.update({ dest.name : dest })
         
@@ -140,7 +193,7 @@ class Vertex():
 
 # Defining an edge
 class Edge():
-    def __init__(self, source : Vertex, destination : Vertex):
+    def __init__(self, source : Vertex, destination : Vertex, weight : float = None):
         
         # The source and destination vertices must belong to the same graph
         if source.owner != destination.owner:
@@ -151,21 +204,83 @@ class Edge():
         self.ax = source.ax
         self.destination = destination
         self.plotrep : dict = {}
+        self.weight = weight
         
+    # Add the edge's weight to the graphical representation
+    def add_edgeweight(self):
+    
+        # If the weight actually exists: otherwise, don't bother
+        if self.weight is not None:
+            
+            # Get the source and destination vertices so we know where to place the edgeweight
+            source = self.source
+            dest = self.destination
+            
+            print("Adding edgeweight between" , source.name , "and" , dest.name)
+            
+            # We know the radius of every vertex
+            radius = source.radius
+        
+            # Determine the coordinates of the weight text
+            weight_x = (source.x + dest.x)/2
+            weight_y = (source.y + dest.y)/2
+            
+            # Place the text on the plot
+            weight_text = plt.text(weight_x, weight_y, self.weight, 
+                                    fontsize = 150*np.pi*radius,
+                                    color="black",
+                                    zorder=200, 
+                                    ha="center",
+                                    va="center",
+                                    backgroundcolor="white")
+            
+            # Link the plot representation with this weight text
+            self.plotrep.update({ "text" : weight_text })    
+    
     # Remove the edge from the plot
     def plot_remove(self):
         
         # For everything in the representation, delete ite
         for plotprop in list(self.plotrep.values()):
-            plotprop.remove()
+            
+            # Because it's very hard to check if it's already there without creating another reference
+            # We will have to just manually try and do nothing if it's already been deleted
+            try:
+                plotprop.remove()
+            except:
+                pass
         
         # Clear the plot representation, deleting all references to these axes objects
         # and making them eligible for garbage collection
         self.plotrep = {}
+        
+    
             
+# Made a function to create a directed edge arrow as it's quite tedious to do
+def create_directed_edge_arrow(x_A,y_A, x_B, y_B, radius, arrowsize, ax):
+    
+    # Get the location differences so the arrows are placed correctly
+    # This is calculated mathematically (on paper) and then input into this program
+    X_location_diff = ( radius + arrowsize ) * np.cos(np.angle((y_B-y_A)*1j + (x_B-x_A)))
+    Y_location_diff = ( radius + arrowsize ) * np.sin(np.angle((y_B-y_A)*1j + (x_B-x_A)))
+    
+    # The dx and dys will be used to point the arrow in the correct direction - the change in the x and y coords
+    dx = x_B - x_A - X_location_diff
+    dy = y_B - y_A - Y_location_diff
+    
+    # Create the arrow for the visual representation of the directed edge
+    visual_edge = ax.arrow(x_A, y_A, dx, dy, 
+                color="black", 
+                head_length = arrowsize, 
+                head_width = arrowsize, 
+                linewidth=0.25,
+                zorder=0)
+    
+    return visual_edge
+
 
     
-                 
+               
 # Compress the string so that any leading whitespaces, either vertically
 # or horizontally, are removed
 # E.g 
@@ -366,7 +481,7 @@ def add_vertices(G : Graph, vertexinfo : list[tuple], ax, nrows : int,ncols : in
     circrad = slight * width/(2*ncols)
     
     # As the height of the circle = the diameter, fontsize will be proportional to the radius
-    fontsize = 50*3*np.pi * circrad
+    fontsize = 150*np.pi * circrad
     
     # Drawing each vertex
     for vertex, x, y in vertexinfo:
@@ -403,7 +518,7 @@ def add_vertices(G : Graph, vertexinfo : list[tuple], ax, nrows : int,ncols : in
         G.V.update({ vertex : v })
 
 # Function to plot the edges of our graph
-def add_edges(G : Graph, bi_edges : list[tuple],di_edges : list[tuple], nrows : int, ncols : int, X : np.ndarray , Y : np.ndarray, slight : float, arrowsize : float =0.01):
+def add_edges(G : Graph, bi_edges : list[tuple],di_edges : list[tuple]):
     
     # Plotting the bidirectional edges is easier
     for vertexA, vertexB in bi_edges:
@@ -437,13 +552,11 @@ edges = "{ A ,  D } , { C ,  F} , {B,E} , (A,B), (A,E), {A,J} "
 
 # Combine everything together to produce the graph
 # The height ratio is the ratio between the y and x components
-def create_graph(schematic : str, edges : str, heightratio : float =2.4, display : bool =False):
+# We add the slight factor to prevent the circles from clipping with the wall
+def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight: float = 0.98, display : bool =False):
 
     # Create the plot
     fig, ax = plt.subplots(figsize=(1080*px,1080*px))
-    
-    # Add the slight factor to prevent the circles from clipping with the wall
-    slight = 0.98
     
     # The plot will always be a square normalised on (0,1) 
     ax.set_xlim([0,1])
@@ -473,7 +586,7 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4, display
     add_vertices(G, vertexinfo, ax, nrows,ncols,X,Y)
     
     # Plot the edges onto the graph using all our info
-    add_edges(G, bi_edges, di_edges, nrows, ncols, X , Y, slight)
+    add_edges(G, bi_edges, di_edges)
 
     plt.savefig("test2.png")
     
@@ -481,16 +594,46 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4, display
     return G
 
 
-G = create_graph(s, edges)
+G = create_graph(compress_string(s), edges)
 
 
-print(list( G.V.keys() ))
+print("-----")
 
-G.delete_edge("A","D")
+G.add_edge("G", "K", True, weight=5)
+
+G.remove_edge("A","B")
+
+G.remove_edge("G","K")
+G.remove_edge("K","G")
+
+# G.add_edge("G","K", False)
+
+# G.remove_edge("J","A")
+
+
+
+for key, value in G.adjacency_list().items():
+    print(key,value)
+
+
+# G.remove_edge("A","J")
+
+
+
+
+
+# G.remove_edge("A","J")
+# # G.remove_edge("A","D")
+
+# G.remove_edge("A","D" , True)
+# G.add_edge("A","D",True)
+
+# G.add_edge("K","E",False)
+# # G.remove_edge("K","E",True)
+# G.add_edge("K","E",True)
 
 plt.savefig("test3.png")
 
-schematic = compress_string(s)
 
 
 
