@@ -6,8 +6,11 @@ res=10
 
 # Defining our graph theory objects
 class Graph():
-    def __init__(self, name, ax, arrowsize=0.01):
+    def __init__(self, name, ax, arrowsize = 0.01):
         self.name = name
+        
+        # Get a reference to the axis that we'll be plotting the graph on
+        self.ax = ax
         
         # V maps the NAME of the vertex to the object vertex
         # E.g for a vertex called V, then we have an entry { "V" : (Object Vertex() at 0x3299239230) }
@@ -17,10 +20,7 @@ class Graph():
         # E.g for vertices called U and V, then we have an entry { ("U", "V") : (Object Edge() at 0x2392230230)} 
         self.E : dict[tuple[str,str], Vertex] = {}
         
-        # Get a reference to the axis
-        self.ax = ax
-        
-        # Set the arrowsize - the size of the arrows for directed edges
+        # Size of the arrows for directed edges        
         self.arrowsize = arrowsize
     
     # Add an edge to the graph
@@ -30,7 +30,7 @@ class Graph():
         source_vertex = self.V.get(source_name)
         destination_vertex = self.V.get(destination_name)
         
-        
+
         
             
     
@@ -77,21 +77,44 @@ class Vertex():
     # Add a destination edge to our vertex
     # destination is the destination vertex (bug in mypy prevents me from adding type hints)
     # visual_edge is the actual plotted edge on the plot
-    def add_edge(self, destination , visual_edge):
+    def add_edge(self, dest, both = False):
         
-        
+        # Plot the edge to get its visual representation
+        if both:
+            visual_edge = self.ax.plot([self.x,dest.x], [self.y, dest.y], 
+                                linewidth = 1, color="black", zorder=0)
+        else:
+            
+            arrowsize = self.owner.arrowsize
+            
+            # Get the location differences so the arrows are placed correctly
+            # This is calculated mathematically (on paper) and then input into this program
+            X_location_diff = ( self.radius + arrowsize ) * np.cos(np.angle((dest.y-self.y)*1j + (dest.x-self.x)))
+            Y_location_diff = ( self.radius + arrowsize ) * np.sin(np.angle((dest.y-self.y)*1j + (dest.x-self.x)))
+            
+            # The dx and dys will be used to point the arrow in the correct direction - the change in the x and y coords
+            dx = dest.x - self.x - X_location_diff
+            dy = dest.x - self.x - Y_location_diff
+            
+            # Draw the directional arrow to get the visual representation
+            visual_edge = self.ax.arrow(self.x, self.y, dx, dy, 
+                    color="black", 
+                    head_length = arrowsize, 
+                    head_width = arrowsize, 
+                    linewidth=0.25,
+                    zorder=0)
         
         # Instantiate the edge
-        edge = Edge(self, destination)
+        edge = Edge(self, dest)
         
         # The edge will now have its visual representation linked to it
         edge.plotrep.update({ "visual" : visual_edge })
         
         # Add the edge to our list of edges
-        self.edges.update({ destination.name : destination })
+        self.edges.update({ dest.name : dest })
         
         # Add to the set of edges in the graph
-        self.owner.E.update({ (self.name, destination.name) : edge })
+        self.owner.E.update({ (self.name, dest.name) : edge })
         
 
 # Defining an edge
@@ -102,9 +125,9 @@ class Edge():
         if source.owner != destination.owner:
             raise Exception(f"Cannot create edge from vertex {source.name} to vertex {destination.name}: they belong to different graphs")
         
+        self.ax = source.ax
         self.owner = source.owner
         self.source = source
-        self.ax = source.ax
         self.destination = destination
         self.plotrep : dict = {}
         
@@ -359,65 +382,29 @@ def add_vertices(G : Graph, vertexinfo : list[tuple], ax, nrows : int,ncols : in
         G.V.update({ vertex : v })
 
 # Function to plot the edges of our graph
-def add_edges(G : Graph, vertexinfo : list[tuple], bi_edges : list[tuple],di_edges : list[tuple], nrows : int, ncols : int, X : np.ndarray , Y : np.ndarray, slight : float, arrowsize : float =0.01):
-    
-    # Turn it into a dict for programmatically easy and efficient access
-    # Also we want to get the graph coordinates whcih requires the number of rows and columns and the X-Y coords
-    vertexinfo_dict = { vertex : get_coords(x,y, nrows, ncols, X, Y) for vertex, x, y in vertexinfo }
+def add_edges(G : Graph, bi_edges : list[tuple],di_edges : list[tuple], nrows : int, ncols : int, X : np.ndarray , Y : np.ndarray, slight : float, arrowsize : float =0.01):
     
     # Plotting the bidirectional edges is easier
     for vertexA, vertexB in bi_edges:
         
-        # Grab their x-y coordinates from the dict
-        x_A, y_A = vertexinfo_dict[vertexA]
-        x_B, y_B = vertexinfo_dict[vertexB]
-        
-        # Plot the edge
-        this_edge = plt.plot([x_A,x_B], [y_A,y_B], linewidth = 1, color="black", zorder=0)
-        
+
         # Grab the vertex objects so we can add edges
         vertexA_obj : Vertex = G.V.get(vertexA)
         vertexB_obj : Vertex = G.V.get(vertexB)
         
         # Add the edges
-        vertexA_obj.add_edge(vertexB_obj, this_edge)
-        vertexB_obj.add_edge(vertexA_obj, this_edge)
+        vertexA_obj.add_edge(vertexB_obj, True)
+        vertexB_obj.add_edge(vertexA_obj, True)
         
-
-        
-    # Radius of each circle
-    circrad = slight * (X.max() - X.min())/(2*ncols)
-    
     # Now for the directional edges it's slightly harder
     for vertexA, vertexB in di_edges:
-        
-        # Grab their x-y coordinates from the dict, same as before
-        x_A, y_A = vertexinfo_dict[vertexA]
-        x_B, y_B = vertexinfo_dict[vertexB]
-        
-        # Get the location differences so the arrows are placed correctly
-        # This is calculated mathematically (on paper) and then input into this program
-        X_location_diff = ( circrad + arrowsize ) * np.cos(np.angle((y_B-y_A)*1j + (x_B-x_A)))
-        Y_location_diff = ( circrad + arrowsize ) * np.sin(np.angle((y_B-y_A)*1j + (x_B-x_A)))
-        
-        # The dx and dys will be used to point the arrow in the correct direction - the change in the x and y coords
-        dx = x_B - x_A - X_location_diff
-        dy = y_B - y_A - Y_location_diff
         
         # Grab the vertices so we can add the edges
         vertexA_obj : Vertex = G.V.get(vertexA)
         vertexB_obj : Vertex = G.V.get(vertexB)
     
-        # Draw the directional arrow
-        this_edge = plt.arrow(x_A, y_A, dx, dy, 
-                  color="black", 
-                  head_length = arrowsize, 
-                  head_width = arrowsize, 
-                  linewidth=0.25,
-                  zorder=0)
-        
         # Add the edge from vertex A to vertex B
-        vertexA_obj.add_edge(vertexB_obj, this_edge)
+        vertexA_obj.add_edge(vertexB_obj)
         
     
          
@@ -476,7 +463,7 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4, display
     add_vertices(G, vertexinfo, ax, nrows,ncols,X,Y)
     
     # Plot the edges onto the graph using all our info
-    add_edges(G, vertexinfo, bi_edges, di_edges, nrows, ncols, X , Y, slight)
+    add_edges(G, bi_edges, di_edges, nrows, ncols, X , Y, slight)
 
     plt.savefig("test2.png")
     
