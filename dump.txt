@@ -1,0 +1,159 @@
+
+def closest_pair_of_points(points):
+    
+    currentmin = [None, None, float("inf")]
+
+    for i in range(len(points)):
+        for j in range(i+1, len(points)):
+            
+            dist= distance.euclidean(points[i], points[j])
+            
+            if dist < currentmin[2]:
+                currentmin = (points[i] , points[j], dist)
+                
+    return currentmin
+            
+def determine_sf(vertexinfo,nrows,ncols,X,Y):
+    
+    points = [get_coords(x,y, nrows,ncols,X,Y) for _,x,y in vertexinfo]
+    
+    A, B, dist = closest_pair_of_points(points)
+
+
+# Find all characters around a character 
+# The schematic used should already be in array format
+def around_char(arrformat, char_row, char_col):
+
+    # This array will store the up to 8 characters surrounding a character
+    # If it is still None by the end then it's out of bounds
+    surrounding = [None, None, None, None , None, None, None, None]
+    
+    # a is our iterator for the surrounding array, so we know which value to populate
+    a = 0
+    
+    # We will go all around the character to see what each index is 
+    # use the indices i,j to navigate immediately around the character
+    # Start at the top left and move around like this:
+    
+    #  0   1    2 
+    #  3  CHAR  4
+    #  5   6    7
+    for i in range(-1,1+1):
+        for j in range(-1, 1+1):
+            # If i and j are 0 then we get the same character so pointless
+            if not (i==j==0): 
+                # If the row we want to look at isn't out of bounds:
+                if char_row + i >= 0 and char_row + i < len(arrformat):
+                    this_row = arrformat[char_row + i] 
+                    
+                    # If the column we want to look at isn't out of bounds:
+                    if char_col + j >= 0 and char_col + j < len(this_row):
+                        surrounding[a] = this_row[char_col+j]
+                    
+                # Iterate a to go to the next character
+                a+=1
+                
+    return surrounding
+
+# Determine if there is an empty path from character A to character B (row and column indices of both required)
+def empty_path(arrformat, charA_row,charA_col, charB_row, charB_col, m = None, gradient_tuple = None, normallymax = None):
+    
+    if m is None:
+        
+        dy = charB_row - charA_row  
+        dx = charB_col - charA_col
+        
+        if dy != 0 and dx != 0:
+            if dy/dx > 1:
+                m = (1, round(dy/dx))
+            else:
+                m = (round(dx/dy), 1)
+        elif dy == 0:
+            m = (1,0)
+        else:
+            m = (0,1)
+        
+        
+        m = (charB_row - charA_row, charB_col - charA_col)
+        gradient_tuple = [0,0]
+        normallymax = 0 if abs(m[0]) > abs(m[1]) else 1
+
+    if gradient_tuple == [0,0]:
+        gradient_tuple[0] = m[0]
+        gradient_tuple[1] = m[1]
+    
+    # dx,dy
+    diffs = [None, None]
+
+    print(m, gradient_tuple, normallymax)    
+
+    gradient_choice =  gradient_tuple[normallymax] <= 0 
+        
+    gradient_tuple[normallymax-gradient_choice] -= np.sign(m[normallymax])
+    diffs[normallymax-gradient_choice] = np.sign(m[normallymax])
+    diffs[normallymax-gradient_choice-1] = 0
+    
+    dx,dy = diffs
+
+    newy = charA_row + dy    
+    newx = charA_col + dx
+
+    if (newy,newx) == (charB_row, charB_col):
+        return True
+    
+    elif newy >= 0 and newy < len(arrformat):
+        this_row = arrformat[newy]
+        
+        if newx >= 0 and newx < len(this_row):
+            
+            this_char = arrformat[newy][newx]
+            
+            if this_char != " ":
+                print("\n".join(arrformat))
+                return False
+            
+            arrformat[newy] = this_row[0:newx] + "x" + this_row[newx+1:]
+            
+            return empty_path(arrformat, newy,newx,charB_row,charB_col, m, gradient_tuple, normallymax)
+      
+        else: 
+            print("out of bounds")
+            
+    else:
+        print("out of bounds")
+
+    
+    
+    
+    
+
+
+
+# Get a dictionary containing the coordinates of every vertex in the string graph representation
+def get_vertex_stringcoords(schematic):
+    
+    # What we will populate
+    s_vertexinfo = {}
+    
+    # Get into array format
+    s_arr = schematic.split("\n")
+    
+    # For each row
+    for i in range(len(s_arr)):
+        
+        this_row = s_arr[i]
+        
+        # For each column
+        for j in range(len(this_row)):
+            
+            # Get the point at this row and column
+            this_point = s_arr[i][j]
+            
+            # If not empty it must be a vertex
+            if this_point != " ":
+                
+                # Update the dict to account for this
+                s_vertexinfo.update({this_point : (i, j) })
+              
+    # Return the fully updated vertex  
+    return s_vertexinfo
