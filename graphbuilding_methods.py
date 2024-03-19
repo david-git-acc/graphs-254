@@ -24,15 +24,24 @@ class Graph():
         self.arrowsize = arrowsize
         
     # Create adjacency list for the graph
-    def adjacency_list(self):
+    # The reverse flag when set to True will give all the INCOMING edges for the graph rather than outgoing
+    def adjacency_list(self,reverse=False):
         
         # Instantiate empty adjacancy list (set)
         adjacency_list = {}
         
         for vertex_name, vertex in list( self.V.items() ):
             
-            # Get the names of all vertices adjacent to this vertex
-            vertex_edges = list( vertex.edges.keys() )
+            # If normal, then we give all outgoing edges
+            # I decided to put this check in here instead of separately to avoid having to duplicate code
+            if not reverse:
+            
+                # Get the names of all vertices adjacent to this vertex
+                vertex_edges = list( vertex.outgoing_edges.keys() )
+                
+            else:
+                # Get the incoming edges instead
+                vertex_edges = list( vertex.incoming_edges.keys())
             
             # Update the adjacency list accordingly
             adjacency_list.update({ vertex_name : vertex_edges })
@@ -40,6 +49,16 @@ class Graph():
         # Provide the list back
         return adjacency_list
             
+    # Get an edge from the graph
+    # Used so we can mimic encapsulation and avoid having to access internal attributes
+    def get_edge(self, source_name : str, destination_name : str):
+        
+        # Just a wrapper for the dict
+        return self.E.get((source_name, destination_name))
+    
+    # Same idea but for vertices
+    def get_vertex(self, vertex_name : str):
+        return self.V.get(vertex_name)
       
     # Add an edge to the graph. both is used for bi-directional edges
     # Also consider the weight of the edge so we can add that as well
@@ -98,8 +117,8 @@ class Graph():
             BtoA.plot_remove()
             BtoA.plotrep["visual"] = visual_edge
             
-            # Then re-add the edgeweight
-            AtoB.add_edgeweight()
+            # Then re-add the edg eweight
+            AtoB.set_weight(AtoB.weight)
             
         # If the reverse edge from B to A doesn't exist, then we don't have to do anything else
         # But if it does exist, then we will have to change its visual representaton (curved arrow) to avoid clipping
@@ -113,29 +132,27 @@ class Graph():
             other_edge.plot_remove()
                   
             # Create the curved line and get its midpoint so we can use this as the edge visualisation
-            visual_edge, midpoint_x, midpoint_y = curved_directed_edge_arrow(destv, sourcev, 0.025, self.ax)
+            visual_arrow, visual_edge, midpoint_x, midpoint_y = curved_directed_edge_arrow(destv, sourcev, 0.025, self.ax)
             
             # Set the other edge's new midpoint
             other_edge.midpoint = [midpoint_x, midpoint_y]
             
             # Add its visual plot representation back
             other_edge.plotrep["visual"] = visual_edge
-            other_edge.add_edgeweight()
+            other_edge.plotrep["arrow"] = visual_arrow
+            other_edge.set_weight(other_edge.weight)
             
             # Now we will create the new edge to replace the visual representation of the edge we just added
-            visual_edge2, mid2_x, mid2_y = curved_directed_edge_arrow(sourcev,destv,0.025,self.ax)
+            visual_arrow2, visual_edge2, mid2_x, mid2_y = curved_directed_edge_arrow(sourcev,destv,0.025,self.ax)
             
             # Now update the midpoints, visual representation and edge weight of the edge we've just added and then we're done
-            edge_just_added.midpoint = [mid2_x, mid2_y]       
+            edge_just_added.midpoint = [mid2_x, mid2_y]  
+            edge_just_added.plotrep["arrow"] = visual_arrow2     
             edge_just_added.plotrep["visual"] = visual_edge2
-            edge_just_added.add_edgeweight()
+            edge_just_added.set_weight(edge_just_added.weight)
 
             
-        
-
-            
-    
-    # Add a directed edge to the graph - may or may not have an edgeweight attached
+    # Add a directed edge to the graph - may or may not have an edge weight attached
     def add_directed_edge(self, source_name : str, destination_name : str , weight : float = None, both: bool = False):
         
         # Get the vertices to do the edge-adding
@@ -152,8 +169,6 @@ class Graph():
         # Then add the directed edge to the graph structure
         sourcev.add_edge(destv, visual_edge, weight=weight)
 
-
-                
 
     # Remove an edge from the graph; both states where it should be a bidirectional removal or just one
     def remove_edge(self, source_name, destination_name, both=False):
@@ -202,16 +217,78 @@ class Graph():
             # Need to update the midpoint of the other edge as well
             other_edge.midpoint = [ (source_vertex.x + dest_vertex.x)/2 , (source_vertex.y + dest_vertex.y) / 2 ] 
             
-            # Add its edgeweight back again
-            other_edge.add_edgeweight()
+            # Add its edge weight back again
+            other_edge.set_weight(other_edge.weight)
                
         # Delete all references to the edge so it is eligible for garbage collection
         del self.E[(source_name, destination_name)]
-        del source_vertex.edges[destination_name]
+        del dest_vertex.incoming_edges[source_name]
+        del source_vertex.outgoing_edges[destination_name]
         
         
-    # # Remove a vertex from the graph and its representation
-    # def delete_vertex(self, vertex_name):
+    # Remove a vertex from the graph and its representation
+    # Also removes all edges connected to it
+    def remove_vertex(self, vertex_name : str) -> None:
+        
+        # Grab the vertex itself
+        the_vertex : Vertex = self.V.get(vertex_name)
+        
+        # Don't try to delete a vertex that doesn't exist
+        if the_vertex is not None:
+        
+            # We will remove every edge, first from the outgoing edges of the vertex
+            for edge_name in list(the_vertex.outgoing_edges.keys()):
+                
+                # Remove ALL edges, both directions, connecting to this edge
+                self.remove_edge(vertex_name, edge_name, both=True)
+            
+            # Now for the incoming edges
+            for edge_name in list(the_vertex.incoming_edges.keys()):
+                
+                # Remove ALL edges, both directions, connecting to this edge
+                self.remove_edge(vertex_name, edge_name, both=True)
+            
+            # Remove all of the vertex's visual representation
+            the_vertex.plot_remove()
+
+            # Finally remove the vertex from representation
+            del self.V[vertex_name]
+    
+    # Add a vertex to the graph 
+    def add_vertex(self, vertex_name : str, x : float, y : float, radius : float) -> None:
+        
+        # Instantiate the vertex
+        new_vertex = Vertex(self, vertex_name, x, y, radius)
+        
+        # Create a circle for the vertex
+        circ = plt.Circle((x,y), radius, 
+                          facecolor="red",
+                          edgecolor="black",
+                          zorder=1, 
+                          clip_on=False )
+        
+        # Add the circle
+        self.ax.add_patch(circ)
+        
+        # Link the plot representation of the vertex to the vertex itself so we can have control over it
+        new_vertex.plotrep.update({ "visual" : circ })
+        
+        # Write the name of the vertex in the circle, centred in the circle
+        vertex_text = plt.text(x,y, vertex_name, 
+                 fontsize=150*np.pi*radius, 
+                 zorder=2,
+                 color="black",
+                 ha="center",
+                 va="center")
+
+        # Also add the text to the vertex representation as well
+        new_vertex.plotrep.update({"text" : vertex_text})
+        
+        # Add the vertex to the graph so we can access them via their string representation
+        self.V.update({ vertex_name : new_vertex })
+        
+        
+        
         
 # Defining a vertex
 class Vertex():
@@ -226,15 +303,37 @@ class Vertex():
         # The edges of the vertex map the NAME of the destination vertex to the object vertex
         # E.g if this vertex is called U, and we have an outgoing edge to V, then an entry would be
         # { "V" : (Object Vertex() at 0x823299238238) }
-        self.edges : dict = {}
+        self.outgoing_edges : dict[str, Vertex] = {}
+        self.incoming_edges : dict[str, Vertex] = {}
         self.plotrep : dict = {}
-    
-    # Add a destination edge to our vertex
+        
+    # Remove this vertex's entire visual representation on the graph
+    def plot_remove(self) -> None:
+
+        # For everything in the representation, delete ite
+        for plotprop in list(self.plotrep.values()):
+            
+            # Because it's very hard to check if it's already there without creating another reference
+            # We will have to just manually try and do nothing if it's already been deleted
+            try:
+                plotprop.remove()
+            except:
+                pass
+        
+        # Clear the plot representation, deleting all references to these axes objects
+        # and making them eligible for garbage collection
+        self.plotrep = {}
+        
+    # Add a directed edge to our vertex
     # destination is the destination vertex (bug in mypy prevents me from adding type hints)
     # visual_edge is the actual plotted edge on the plot
     # weight is the float weight assigned to the edge
     # the midpoint can be optionally input 
     def add_edge(self, dest, visual_edge, weight : float = None, midpoint : list[float,float] = None):
+        
+        # Make sure this edge actually exists
+        if not isinstance(dest, Vertex):
+            raise Exception(f"Destination vertex for outgoing edge from {self.name} does not exist")
         
         # Instantiate the edge with all the information
         edge = Edge(self, dest, weight, midpoint=midpoint)
@@ -243,10 +342,13 @@ class Vertex():
         edge.plotrep.update({ "visual" : visual_edge })
         
         # Add the weight of the edge
-        edge.add_edgeweight()
+        edge.set_weight(weight)
 
         # Add the edge to our list of edges
-        self.edges.update({ dest.name : dest })
+        self.outgoing_edges.update({ dest.name : dest })
+        
+        # The destination will now have an incoming edge, so add that
+        dest.incoming_edges.update({ self.name : self })
         
         # Add to the set of edges in the graph
         self.owner.E.update({ (self.name, dest.name) : edge })
@@ -276,23 +378,23 @@ class Edge():
             # Let it be the linear midpoint so that we know it's specified 
             self.midpoint = [(source.x+destination.x)/2, (source.y+destination.y)/2]
             
-            
-            
-        
-    # Add the edge's weight to the graphical representation
-    def add_edgeweight(self):
+    # Set the edge's weight and add it to the graphical representation
+    # Default value is None, so by not specifying any input you remove the edge weight
+    def set_weight(self, val : float = None) -> None:
     
+        # Delete the existing weight text if it exists
+        if self.plotrep.get("text") is not None:
+            self.plotrep["text"].remove()
+            del self.plotrep["text"]
+            
+        # Update the weight to the specified value
+        self.weight = val
+        
         # If the weight actually exists: otherwise, don't bother
         if self.weight is not None:
             
-            # Get the source and destination vertices so we know where to place the edgeweight
-            source = self.source
-            dest = self.destination
-            
-            print("Adding edgeweight between" , source.name , "and" , dest.name)
-            
-            # We know the radius of every vertex
-            radius = source.radius
+            # Get the radius of the vertex as it is used to determine the fontsize
+            radius = self.source.radius
             
             # Place the text on the plot
             weight_text = plt.text(*self.midpoint, self.weight, 
@@ -305,7 +407,8 @@ class Edge():
             
             # Link the plot representation with this weight text
             self.plotrep.update({ "text" : weight_text })    
-    
+            
+
     # Remove the edge from the plot
     def plot_remove(self):
         
@@ -365,6 +468,8 @@ def curved_directed_edge_arrow(sourcev : Vertex, destv : Vertex, d : float, ax) 
     # 2. Finding theta via trigonometry
     # 3. Creating the quadratic curve whose height peaks at the vertical distance d and crosses the x-axis at x_A,x_C
     # 4. Taking the points on the curve and rotating them back by 2pi - theta degrees to get the curved edge
+    # 5. Creating the arrow for the curved edges by approximation
+    # 6  Returning this to the program so we can add it to the graph
       
     # Determine if we want the edge to be going up or down
     edge_sign = 1 if sourcev.name > destv.name else -1
@@ -377,7 +482,7 @@ def curved_directed_edge_arrow(sourcev : Vertex, destv : Vertex, d : float, ax) 
     x_diff = x_B - x_A
     y_diff = y_B - y_A
     
-    # This is the distance from x_A that x_C will be
+    # This is the euclidean distance from x_A that x_C will be
     D = np.sqrt(x_diff**2 + y_diff**2)
 
     # Rotation formulas for 2D
@@ -415,7 +520,7 @@ def curved_directed_edge_arrow(sourcev : Vertex, destv : Vertex, d : float, ax) 
     # To transform them back, first we need to set them relative to (0,0)
     X -= x_A
     Y -= y_A
-    
+
     # Rotatin mapping
     remapped_X = rotate_x(X,Y,2*np.pi-theta)
     remapped_Y = rotate_y(X,Y, 2*np.pi - theta)
@@ -430,18 +535,40 @@ def curved_directed_edge_arrow(sourcev : Vertex, destv : Vertex, d : float, ax) 
     # Get the coordinates of midpoint so we can add it
     mid_x = remapped_X[midpoint_index]
     mid_y = remapped_Y[midpoint_index]
+
+    # Get the arrowsize from the graph
+    arrowsize = sourcev.owner.arrowsize
     
-    # The line itself, without the arrow
-    curved_arrow = ax.plot(remapped_X, remapped_Y, 
-             color="black", 
-             linewidth=1, 
-             zorder=0, 
-             clip_on=False)[0]
+    # The index of the arrow determines how far along the line it is 
+    arrow_index = int( 0.95* (D-sourcev.radius) * res / D )
+    
+    # Determine the x and y coordinates of the arrow
+    arrow_X = remapped_X[arrow_index]
+    arrow_Y = remapped_Y[arrow_index]
+    
+    # Calculate the derivatives of the arrow so we know its direction
+    dx = arrow_X - remapped_X[arrow_index - 1] 
+    dy = arrow_Y - remapped_Y[arrow_index - 1] 
+    
+    # Create the arrow itself
+    arrow = ax.arrow(arrow_X,arrow_Y,dx,dy,
+                     color="black", 
+                     head_length = arrowsize, 
+                     head_width = arrowsize, 
+                     linewidth=0.25,
+                     zorder=0)
+    
+   
+    # The curved line itself, without the arrow
+    curved_line = ax.plot(remapped_X, remapped_Y, 
+                           color="black", 
+                           linewidth=1, 
+                           zorder=0, 
+                           clip_on=False)[0]
     
     
-    
-    # Return the coordinate arrays of the curve edge and the coordinates of the midpoints
-    return (curved_arrow, mid_x,mid_y)
+    # Return the references to the curve edge, the arrow and the coordinates of the midpoints
+    return (arrow, curved_line, mid_x,mid_y)
                
 # Compress the string so that any leading whitespaces, either vertically
 # or horizontally, are removed
@@ -565,6 +692,8 @@ def arrify_edges(edges : str) -> tuple:
         
         # Identify the vertices based on the string structure
         vertexA = substr[1]
+        
+        # The next vertex will be in the next section (as separated by commas) and the first character
         vertexB = edges[i+1][0]
         
         # Bidirectional edges
@@ -634,7 +763,7 @@ def get_coords(x : float ,y : float, nrows : int,ncols : int, X : np.ndarray,Y :
 
 
 # Plot the vertices on the graph
-def add_vertices(G : Graph, vertexinfo : list[tuple], ax, nrows : int,ncols : int, X : np.ndarray,Y : np.ndarray, slight : float =0.98) -> None:
+def add_vertices(G : Graph, vertexinfo : list[tuple], nrows : int,ncols : int, X : np.ndarray,Y : np.ndarray, slight : float =0.98) -> None:
     
     # Determine width of the graph which will be used to determine the vertex size
     width = X.max() - X.min()
@@ -642,43 +771,13 @@ def add_vertices(G : Graph, vertexinfo : list[tuple], ax, nrows : int,ncols : in
     # Radius of each circle
     circrad = slight * width/(2*ncols)
     
-    # As the height of the circle = the diameter, fontsize will be proportional to the radius
-    fontsize = 150*np.pi * circrad
-    
     # Drawing each vertex
     for vertex, x, y in vertexinfo:
         
-        # Instantiate the vertex
-        v = Vertex(G, vertex, *get_coords(x,y,nrows,ncols,X,Y), circrad)
-            
-        # Create a circle for each vertex according to its coordinates
-        circ = plt.Circle(get_coords(x,y,nrows,ncols,X,Y), 
-                          circrad, 
-                          facecolor="red",
-                          edgecolor="black",
-                          zorder=1, 
-                          clip_on=False )
+        # Get the vertex coordinates
+        vertex_x, vertex_y = get_coords(x,y,nrows,ncols,X,Y)
         
-        # Add the circle
-        ax.add_patch(circ)
-        
-        # Link the plot representation of the vertex to the vertex itself so we can have control over it
-        v.plotrep.update({ "visual" : circ })
-        
-        # Write the name of the vertex in the circle, centred in the circle
-        vertex_text = plt.text(*get_coords(x,y,nrows,ncols,X,Y),
-                 vertex, 
-                 fontsize=fontsize, 
-                 zorder=2,
-                 color="black",
-                 ha="center",
-                 va="center")
-
-        # Also add the text to the vertex representation as well
-        v.plotrep.update({"text" : vertex_text})
-        
-        # Add the vertex to the graph so we can access them via their string representation
-        G.V.update({ vertex : v })
+        G.add_vertex(vertex, vertex_x, vertex_y, circrad)
 
 # Function to plot the edges of our graph
 def add_edges(G : Graph, bi_edges : list[tuple],di_edges : list[tuple]):
@@ -738,7 +837,6 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight:
     # Get both types of edges from the user's string input in array format
     bi_edges, di_edges = arrify_edges(edges)
     
-
     # Get the vertexinfo and number of rows and columns by analysing the string
     vertexinfo,nrows,ncols = string_metainfo(schematic)
 
@@ -746,7 +844,7 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight:
     _,_,X,Y = create_grid(ncols,nrows, heightratio)
     
     # Use the information we've gathered to add the vertices to the graph
-    add_vertices(G, vertexinfo, ax, nrows,ncols,X,Y)
+    add_vertices(G, vertexinfo, nrows,ncols,X,Y)
     
     # Plot the edges onto the graph using all our info
     add_edges(G, bi_edges, di_edges)
@@ -768,15 +866,15 @@ G = create_graph(compress_string(s), edges)
 
 G.remove_edge("A","B",True)
 G.add_edge("A","C", weight=3)
-G.add_edge("C","A", weight=3)
+G.add_edge("C","A", weight=32)
 # G.add_edge("I","F")
 # G.add_edge("F","I")
 
 G.add_edge("I","J")
 G.add_edge("J","I")
 
-G.add_edge("B","G")
-G.add_edge("G","B")
+G.add_edge("B","G", weight=37)
+G.add_edge("G","B", weight=6.5)
 
 G.add_edge("F","E")
 G.add_edge("E","F")
@@ -791,13 +889,40 @@ G.add_edge("K","G")
 G.add_edge("H","D")
 G.add_edge("D","H")
 
+G.get_edge("G","K").set_weight(4)
+
+G.remove_edge("K","G")
+
+G.get_edge("F","E").set_weight(3)
+
+G.get_edge("F","E").set_weight()
+
+G.remove_edge("D","H")
+
+G.add_edge("B","G", both=True, weight=4)
+
+print(G.get_edge("G","B").weight)
+
+#G.remove_edge("E","A",True)
+
+G.remove_vertex("E")
+G.remove_vertex("A")
+
+F = G.get_vertex("F")
+
+print(F.x,F.y)
+
+G.add_vertex("P", 0.72, 0.72, G.get_vertex("F").radius)
+
+G.add_edge("I","P", both=True, weight=15)
+
 # G.add_edge("G","B")
 # G.add_edge("B","G")
 # G.add_edge("G","J", weight=3)
 # G.add_edge("J","G", weight=7)
 # G.add_edge("G","J", both=False)
 
-for key, value in G.adjacency_list().items():
+for key, value in G.adjacency_list(reverse=True).items():
     print(key,value)
     
 
