@@ -152,9 +152,9 @@ def arrify_edges(edges : str) -> tuple:
 # Add gridlines to the plot to understand what's going on
 def gridlines(X : np.ndarray,Y : np.ndarray,x : int,y : int) -> None:
     for i in np.linspace(X.min(),X.max(), x+1):
-        plt.axvline(i, Y.min(),Y.max(), color="black")
+        plt.axvline(i, Y.min(),Y.max(), color="white", zorder=0)
     for j in np.linspace(Y.min(),Y.max(), y+1):
-        plt.axhline(j, X.min(), X.max(), color="black")
+        plt.axhline(j, X.min(), X.max(), color="white", zorder=0)
 
 # Create the grid that the vertices will be based on
 # x = number of columns, y = number of rows
@@ -167,11 +167,11 @@ def create_grid(x : int,y : int, heightratio : float, display : bool =False) -> 
     if y2 >= x:
         X,Y = arrs
         if display:
-            plt.fill_between(X, [0], [1], color="blue")
+            plt.fill_between(X, [0], [1], color="blue", zorder=0)
     else:
         Y,X = arrs
         if display:
-            plt.fill_betweenx(Y, [0],[1], color="blue")
+            plt.fill_betweenx(Y, [0],[1], color="blue",zorder=0)
 
     # Determine the width and height of the overall graph figure
     width = X.max()-X.min()
@@ -231,28 +231,12 @@ def add_edges(G : Graph, bi_edges : list[tuple],di_edges : list[tuple]):
         # Add the edge to the graph
         G.add_edge(vertexA,vertexB, both=False)
         
-    
-s = ( 
-'''
-   A                          D
-                     I
-   C                      F
-          H      
-   B                       E   
-   
-                   J
-   G                    K 
-
-''' )
-
-
-
-edges = "{ A ,  D } , { C ,  F} , {B,E} , (A,B), (A,E), {A,J} "
-
+        
 # Combine everything together to produce the graph
 # The height ratio is the ratio between the y and x components
 # We add the slight factor to prevent the circles from clipping with the wall
-def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight: float = 0.98, display : bool =False):
+def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight: float = 0.98, display : bool =False,
+                 vertexcolour : str = "red", edgecolour : str = "black"):
 
     # Create the plot
     fig, ax = plt.subplots(figsize=(1080*px,1080*px))
@@ -266,7 +250,7 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight:
         plt.axis("off")
 
     # Create the Graph object
-    G = Graph("G", ax)
+    G = Graph("G", ax, vertexcolour=vertexcolour, edgecolour=edgecolour)
 
     # Compress the input to eliminate redundant whitespaces
     schematic = compress_string(schematic)
@@ -278,7 +262,7 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight:
     vertexinfo,nrows,ncols = string_metainfo(schematic)
 
     # Create our X-Y grid
-    _,_,X,Y = create_grid(ncols,nrows, heightratio)
+    _,_,X,Y = create_grid(ncols,nrows, heightratio, display=display)
     
     # Use the information we've gathered to add the vertices to the graph
     add_vertices(G, vertexinfo, nrows,ncols,X,Y)
@@ -292,90 +276,43 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight:
     return G
 
 
-G = create_graph(compress_string(s), edges)
+s = ( 
+'''
+                   B   
+                     
+            I             F
 
-# G.add_edge("G","K",False, weight=5)
-# G.add_edge("K","G", False, weight=3)
-# G.remove_edge("K","G", both=True)
-# G.add_edge("E","A",both=True)
-# G.remove_edge("D","A")
-# G.add_edge("D","A", both=True)
+        E          A           C
+        
+            H             G     
+    
+                   D   
+        
+''' )
 
-G.remove_edge("A","B",True)
-G.add_edge("A","C", weight=3)
-G.add_edge("C","A", weight=32)
-# G.add_edge("I","F")
-# G.add_edge("F","I")
 
-G.add_edge("I","J")
-G.add_edge("J","I")
 
-G.add_edge("B","G", weight=37)
-G.add_edge("G","B", weight=6.5)
+edges = '''(E,A),(A,E),(A,B),(B,A),(A,C),(C,A),(A,D),(D,A),(A,I),(I,A),(A,F),(F,A),(A,H),(H,A),(A,G),(G,A),
+            (B,F),(F,C),(C,G),(G,D),(D,H),(H,E),(E,I),(I,B)'''
 
-G.add_edge("F","E")
-G.add_edge("E","F")
+G = create_graph(compress_string(s), edges, vertexcolour="lime" ,edgecolour="black")
 
-print("------------")
-
-# G.add_edge("B","A", both=False)
-
-G.add_edge("G","K")
-G.add_edge("K","G", both=True)
-
-G.add_edge("H","D")
-G.add_edge("D","H")
-
-G.get_edge("G","K").set_weight(4)
-G.get_edge("K","G").set_weight(69)
-
-print("weights" , G.get_edge("G","K").weight)
-
-# G.remove_edge("K","G")
-
-G.get_edge("F","E").set_weight(3)
-
-G.get_edge("E","F").set_weight(2)
-
-G.add_edge("E","F", weight = 7, both=True)
-
-G.remove_edge("D","H")
-
-G.add_edge("J","I", weight=4)
-
-G.get_edge("J","I").set_weight(3)
-
-print(G.get_edge("J","I").weight)
-
-print(G.get_edge("I","J").weight)
-
-G.remove_edge("G","K", both=True)
-
-G.add_edge("G","K", weight=71)
-G.add_edge("K","G", weight = 63)
-
-#G.remove_edge("E","A",True)
-
-# G.remove_vertex("E")
-# G.remove_vertex("A")
-
-# F = G.get_vertex("F")
-
-# print(F.x,F.y)
-
-# G.add_vertex("P", 0.72, 0.72, G.get_vertex("F").radius)
-
-# G.add_edge("I","P", both=True, weight=15)
-
-# G.add_edge("G","B")
-# G.add_edge("B","G")
-# G.add_edge("G","J", weight=3)
-# G.add_edge("J","G", weight=7)
-# G.add_edge("G","J", both=False)
 
 for key, value in G.adjacency_list(reverse=True).items():
     print(key,value)
     
+G.remove_vertex("A")
+
+G.add_edge("I","F")
+G.add_edge("F","I")
+G.add_edge("H","F",both=True)
+G.add_edge("G","I", both=True)
+G.add_edge("I","H")
+G.add_edge("H","I")
+G.add_edge("F","G")
+G.add_edge("G","F")
+G.add_edge("H","G")
+G.add_edge("G","H")
 
 plt.savefig("test3.png")
 
