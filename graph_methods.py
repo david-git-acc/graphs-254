@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 px = 1/96
 res=100
 
-# Import the graph object structure from our graph py file
+# Import the graph object structure from our graph.py file
 from graph import Graph
                
 # Compress the string so that any leading whitespaces, either vertically
@@ -321,37 +321,51 @@ print("------------")
 # G.add_edge("B","A", both=False)
 
 G.add_edge("G","K")
-G.add_edge("K","G")
+G.add_edge("K","G", both=True)
 
 G.add_edge("H","D")
 G.add_edge("D","H")
 
 G.get_edge("G","K").set_weight(4)
+G.get_edge("K","G").set_weight(69)
 
-G.remove_edge("K","G")
+print("weights" , G.get_edge("G","K").weight)
+
+# G.remove_edge("K","G")
 
 G.get_edge("F","E").set_weight(3)
 
-G.get_edge("F","E").set_weight()
+G.get_edge("E","F").set_weight(2)
+
+G.add_edge("E","F", weight = 7, both=True)
 
 G.remove_edge("D","H")
 
-G.add_edge("B","G", both=True, weight=4)
+G.add_edge("J","I", weight=4)
 
-print(G.get_edge("G","B").weight)
+G.get_edge("J","I").set_weight(3)
+
+print(G.get_edge("J","I").weight)
+
+print(G.get_edge("I","J").weight)
+
+G.remove_edge("G","K", both=True)
+
+G.add_edge("G","K", weight=71)
+G.add_edge("K","G", weight = 63)
 
 #G.remove_edge("E","A",True)
 
-G.remove_vertex("E")
-G.remove_vertex("A")
+# G.remove_vertex("E")
+# G.remove_vertex("A")
 
-F = G.get_vertex("F")
+# F = G.get_vertex("F")
 
-print(F.x,F.y)
+# print(F.x,F.y)
 
-G.add_vertex("P", 0.72, 0.72, G.get_vertex("F").radius)
+# G.add_vertex("P", 0.72, 0.72, G.get_vertex("F").radius)
 
-G.add_edge("I","P", both=True, weight=15)
+# G.add_edge("I","P", both=True, weight=15)
 
 # G.add_edge("G","B")
 # G.add_edge("B","G")

@@ -70,10 +70,10 @@ class Graph():
         # Check if the other edge exists
         other_edge : Edge = self.E.get((destination_name, source_name))
         
-        # If we want 2 directed edges but they have the same weight then there's no point in making a curved line
-        # So we will make them the same edge instead so that the graph is not unnecessarily complicated
-        if not both and weight is not None and other_edge is not None and other_edge.weight == weight :
-            both = True
+        # # If we want 2 directed edges but they have the same weight then there's no point in making a curved line
+        # # So we will make them the same edge instead so that the graph is not unnecessarily complicated
+        # if not both and weight is not None and other_edge is not None and other_edge.weight == weight :
+        #     both = True
             
         # Get the source and destination vertices
         sourcev : Vertex = self.V.get(source_name)
@@ -118,7 +118,7 @@ class Graph():
             BtoA.plotrep["visual"] = visual_edge
             
             # Then re-add the edg eweight
-            AtoB.set_weight(AtoB.weight)
+            AtoB.set_weight(AtoB.weight, consistent=False)
             
         # If the reverse edge from B to A doesn't exist, then we don't have to do anything else
         # But if it does exist, then we will have to change its visual representaton (curved arrow) to avoid clipping
@@ -140,7 +140,7 @@ class Graph():
             # Add its visual plot representation back
             other_edge.plotrep["visual"] = visual_edge
             other_edge.plotrep["arrow"] = visual_arrow
-            other_edge.set_weight(other_edge.weight)
+            other_edge.set_weight(other_edge.weight, consistent=False)
             
             # Now we will create the new edge to replace the visual representation of the edge we just added
             visual_arrow2, visual_edge2, mid2_x, mid2_y = curved_directed_edge_arrow(sourcev,destv,0.025,self.ax)
@@ -149,7 +149,7 @@ class Graph():
             edge_just_added.midpoint = [mid2_x, mid2_y]  
             edge_just_added.plotrep["arrow"] = visual_arrow2     
             edge_just_added.plotrep["visual"] = visual_edge2
-            edge_just_added.set_weight(edge_just_added.weight)
+            edge_just_added.set_weight(edge_just_added.weight, consistent = False)
 
             
     # Add a directed edge to the graph - may or may not have an edge weight attached
@@ -171,7 +171,7 @@ class Graph():
 
 
     # Remove an edge from the graph; both states where it should be a bidirectional removal or just one
-    def remove_edge(self, source_name, destination_name, both=False):
+    def remove_edge(self, source_name : str, destination_name : str, both : bool = False):
         
         self.remove_directed_edge(source_name, destination_name)
         
@@ -216,14 +216,17 @@ class Graph():
             
             # Need to update the midpoint of the other edge as well
             other_edge.midpoint = [ (source_vertex.x + dest_vertex.x)/2 , (source_vertex.y + dest_vertex.y) / 2 ] 
-            
-            # Add its edge weight back again
-            other_edge.set_weight(other_edge.weight)
-               
+                
         # Delete all references to the edge so it is eligible for garbage collection
         del self.E[(source_name, destination_name)]
         del dest_vertex.incoming_edges[source_name]
         del source_vertex.outgoing_edges[destination_name]
+        
+        # We need to wait until after the vertex references have been deleted before we set the weight again
+        if other_edge is not None:
+            
+            # Add its edge weight back again
+            other_edge.set_weight(other_edge.weight, consistent= False)
         
         
     # Remove a vertex from the graph and its representation
@@ -342,7 +345,7 @@ class Vertex():
         edge.plotrep.update({ "visual" : visual_edge })
         
         # Add the weight of the edge
-        edge.set_weight(weight)
+        edge.set_weight(weight, consistent=False)
 
         # Add the edge to our list of edges
         self.outgoing_edges.update({ dest.name : dest })
@@ -380,7 +383,8 @@ class Edge():
             
     # Set the edge's weight and add it to the graphical representation
     # Default value is None, so by not specifying any input you remove the edge weight
-    def set_weight(self, val : float = None) -> None:
+    # The consistent boolean will try to ensure consistent edge weights
+    def set_weight(self, val : float = None, consistent : bool = True) -> None:
     
         # Delete the existing weight text if it exists
         if self.plotrep.get("text") is not None:
@@ -390,14 +394,26 @@ class Edge():
         # Update the weight to the specified value
         self.weight = val
         
+        # Check if this edge is a directed edge with a counterpart
+        # If we have an arrow as a plot prop, then there must be a counterpart edge from B to A with different weight
+        double_arrow = self.plotrep.get("arrow") is not None
+        
+        # Check if the other edge from destination to source exists
+        other_edge : Edge = self.owner.get_edge(self.destination.name, self.source.name)
+        
+        # If we have no double arrow, we are a single bidirectional edge then
+        # we must update the counterpart edge's weight as well to prevent inconsistency
+        if consistent and not double_arrow and other_edge is not None and other_edge.weight != val:
+            other_edge.set_weight(val)
+        
         # If the weight actually exists: otherwise, don't bother
-        if self.weight is not None:
+        if self.weight is not None: 
             
             # Get the radius of the vertex as it is used to determine the fontsize
             radius = self.source.radius
             
             # Place the text on the plot
-            weight_text = plt.text(*self.midpoint, self.weight, 
+            weight_text = self.ax.text(*self.midpoint, self.weight, 
                                     fontsize = 150*np.pi*radius,
                                     color="black",
                                     zorder=200, 
