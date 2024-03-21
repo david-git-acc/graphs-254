@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from drawing_functions import directed_edge_arrow, curved_directed_edge_arrow, selfloop_arrow
 
 # Defining our graph theory objects
 class Graph():
@@ -76,10 +77,33 @@ class Graph():
     # Add an edge to the graph. both is used for bi-directional edges
     # Also consider the weight of the edge so we can add that as well
     def add_edge(self, source_name : str, destination_name : str, both : bool = False, weight : float = None,
-                 edgecolour : str = None):
+                 edgecolour : str = None) -> None:
         
         # Make the user choose an edgecolour or we use the default
         if edgecolour is None: edgecolour = self.edgecolour
+        
+        # Get the source and destination vertices
+        sourcev : Vertex = self.V.get(source_name)
+        destv : Vertex = self.V.get(destination_name)
+        
+        # Check if we have a self loop, where the source IS the destination
+        if sourcev == destv:
+            print("Selfloop!" , sourcev.name)
+            
+            # Create the selflooping arrow - we need the arrowhead
+            selfloop_arrowhead, visual_edge, midpoint_x, midpoint_y = selfloop_arrow(sourcev,0.5, self.ax, edgecolour)
+            
+            # Add the edge itself
+            sourcev.add_edge(sourcev, visual_edge, midpoint = [midpoint_x, midpoint_y], edgecolour=edgecolour, weight=weight)
+            
+            # Grab the edge so we can add the arrowhead to it as well
+            edge_just_added = self.get_edge(sourcev.name, sourcev.name)
+            
+            # Add the arrowhead to the edge as well so we can keep track of it
+            edge_just_added.plotrep["selfloop_arrow"] = selfloop_arrowhead
+            
+            # Now the edge is fully added so we don't need to do anything else
+            return
         
         # Add the edges using our directed edge function
         self.add_directed_edge( source_name, destination_name, weight, edgecolour=edgecolour)
@@ -92,9 +116,9 @@ class Graph():
         # if not both and weight is not None and other_edge is not None and other_edge.weight == weight :
         #     both = True
             
-        # Get the source and destination vertices
-        sourcev : Vertex = self.V.get(source_name)
-        destv : Vertex = self.V.get(destination_name)
+
+        
+
             
         # If both edges exist then we remove the arrows
         if both: 
@@ -203,7 +227,24 @@ class Graph():
 
 
     # Remove an edge from the graph; both states where it should be a bidirectional removal or just one
-    def remove_edge(self, source_name : str, destination_name : str, both : bool = False):
+    def remove_edge(self, source_name : str, destination_name : str, both : bool = False) -> None:
+        
+        if source_name == destination_name:
+
+            # Get the vertex and the edge so we can reference them for deletion
+            the_vertex = self.get_vertex(source_name)
+            the_edge = self.get_edge(source_name, source_name)
+            
+            if the_edge is not None:
+                the_edge.plot_remove()
+                
+                # Delete all references to the edge so it is eligible for garbage collection
+                del self.E[(source_name, source_name)]
+                del the_vertex.incoming_edges[source_name]
+                del the_vertex.outgoing_edges[source_name]
+            
+            # Now that we've fully deleted the self loop we are done, so no need to continue further
+            return
         
         self.remove_directed_edge(source_name, destination_name)
         
@@ -427,6 +468,7 @@ class Vertex():
         # Add to the set of edges in the graph
         self.owner.E.update({ (self.name, dest.name) : edge })
     
+  
     # Get the number of edges entering this vertex
     def indegree(self) -> int: return len(self.incoming_edges)
     
@@ -533,9 +575,22 @@ class Edge():
         
         self.colour = newcolour
         
+        # Check if we are a self loop, as this requires unique code
+        if self.source == self.destination:
+            
+            # Remove the selfloop arrow component as well
+            self.plotrep["selfloop_arrow"].remove()
+            
+            # Generate the new self loop edge 
+            new_edge_arrow, new_edge, _, _ = selfloop_arrow(self.source, 0.5, self.ax, 
+                                                            self.colour)
+            
+            # Since the last two cases don't have arrows we do it separately here
+            self.plotrep["selfloop_arrow"] = new_edge_arrow
+        
         # Create a different type of line depending on the edge type
         # Curved arrows mean we have 2 directed edges in both directions
-        if self.curved:
+        elif self.curved:
             
             # If we are a curved arrow then we also need to remove the existing arrow as well
             self.plotrep["arrow"].remove()
@@ -547,7 +602,7 @@ class Edge():
                                                 self.ax,
                                                 self.colour)
             
-            # Since this is the only case where we get an arrow we address it here
+            # Since the last two cases don't have arrows we do it separately here
             self.plotrep["arrow"] = new_edge_arrow
             
         # If other edge doesn't exist and NOT curved, then it must be a single direction arrow
@@ -569,8 +624,8 @@ class Edge():
         # Now link this new edge with the visual plot representation of the edge
         self.plotrep["visual"] = new_edge
             
-        # If bidirectional don't forget to update the other edge as well
-        if not self.curved and other_edge is not None:
+        # If bidirectional (and not a self-loop) don't forget to update the other edge as well
+        if not self.curved and other_edge is not None and self.source != self.destination:
             other_edge.plotrep["visual"] = new_edge
             other_edge.colour = newcolour
             
@@ -591,145 +646,10 @@ class Edge():
         # and making them eligible for garbage collection
         self.plotrep = {}
         
-    
-            
-# Made a function to create a directed edge arrow as it's quite tedious to do
-def directed_edge_arrow(x_A,y_A, x_B, y_B, radius, arrowsize, ax, edgecolour : str = "black"):
-    
-    # Get the location differences so the arrows are placed correctly
-    # This is calculated mathematically (on paper) and then input into this program
-    X_location_diff = ( radius + arrowsize ) * np.cos(np.angle((y_B-y_A)*1j + (x_B-x_A)))
-    Y_location_diff = ( radius + arrowsize ) * np.sin(np.angle((y_B-y_A)*1j + (x_B-x_A)))
-    
-    # The dx and dys will be used to point the arrow in the correct direction - the change in the x and y coords
-    dx = x_B - x_A - X_location_diff
-    dy = y_B - y_A - Y_location_diff
-    
-    # Create the arrow for the visual representation of the directed edge
-    visual_edge = ax.arrow(x_A, y_A, dx, dy, 
-                color=edgecolour, 
-                head_length = arrowsize, 
-                head_width = arrowsize, 
-                linewidth=0.25,
-                zorder=0)
-    
-    return visual_edge
 
-# Given 2 vertices A and B, and a distance midpoint, determine the coordinates of the distance
-# midpoint and the coefficients of the quadratic function to simulate a curved edge (for directed edges)
 
-#          --d--
-#      ---      ---
-#   ---             ---
-# A         mid         B
-#
-# We return a reference to the actual plotted arrow and the midpoint of the arrow
-# This is necessary because if we have a di-edge from A to B and another from B to A,they may have different properties
-# So we will need to be able to show 
-def curved_directed_edge_arrow(sourcev : Vertex, destv : Vertex, d : float, ax, edgecolour : str = "black") -> tuple:
 
-    # We can create the curved edge by:
-    # 1. Finding the point x_C which is on the same x-coordinate as x_A and a rotation of some theta degrees
-    # 2. Finding theta via trigonometry
-    # 3. Creating the quadratic curve whose height peaks at the vertical distance d and crosses the x-axis at x_A,x_C
-    # 4. Taking the points on the curve and rotating them back by 2pi - theta degrees to get the curved edge
-    # 5. Creating the arrow for the curved edges by approximation
-    # 6  Returning this to the program so we can add it to the graph
-      
-    # Determine if we want the edge to be going up or down
-    edge_sign = 1 if sourcev.name > destv.name else -1
-    
-    # Get the x and y coordinates
-    x_A, y_A = (sourcev.x, sourcev.y)
-    x_B, y_B = (destv.x, destv.y)
-    
-    # Difference between coordinates - used in the trig
-    x_diff = x_B - x_A
-    y_diff = y_B - y_A
-    
-    # This is the euclidean distance from x_A that x_C will be
-    D = np.sqrt(x_diff**2 + y_diff**2)
 
-    # Calculate the rotation angle
-    theta = 2*np.pi - np.arctan(- y_diff / x_diff)
-    
-    # Determine whether the point should be to the left or the right of x_A
-    if x_B > x_A:    
-        x_C = x_A + D
-    elif x_B < x_A:
-        x_C = x_A - D
-        
-    else:
-        
-        # If equal x-coordinates then we need to make them vary by the edgesign
-        x_C = x_A + edge_sign *  D
-        theta *= edge_sign
-          
-    # This constant will be used in the height function
-    # Need a small margin to prevent divide-by-zero errors
-    k = edge_sign * 4 * d / ( (x_A - x_C)**2 + 0.0001)
-    
-    # Creating the height function - a parabola to simulate the directed edge appearance
-    height = lambda h : k * (h-x_A) * (h-x_C)
-    
-    # Get the resolution that we will use from the graph - the number of data points used to build our curve
-    res = sourcev.owner.res
-    
-    # Create the X-axis from x_A to x_C that our parabola will go on
-    X = np.linspace(x_A,x_C, res)
-    
-    # Create the parabolic curve points
-    Y = y_A + height(X)
-    
-    # To transform them back, first we need to set them relative to (0,0)
-    X -= x_A
-    Y -= y_A
 
-    # Perform the rotational mapping
-    remapped_X = X * np.cos(theta) - Y * np.sin(theta)
-    remapped_Y = X * np.sin(theta) + Y * np.cos(theta)
-    
-    # Then we add the coordinates back on, which has the same effect as rotating them about (x_A, y_A)
-    remapped_X += x_A
-    remapped_Y += y_A
-    
-    # Get the index of the midpoint
-    midpoint_index = len(remapped_X) // 2
-    
-    # Get the coordinates of midpoint so we can add it
-    mid_x = remapped_X[midpoint_index]
-    mid_y = remapped_Y[midpoint_index]
 
-    # Get the arrowsize from the graph
-    arrowsize = sourcev.owner.arrowsize
-    
-    # The index of the arrow determines how far along the line it is 
-    arrow_index = int( 0.95* (D-sourcev.radius) * res / D )
-    
-    # Determine the x and y coordinates of the arrow
-    arrow_X = remapped_X[arrow_index]
-    arrow_Y = remapped_Y[arrow_index]
-    
-    # Calculate the derivatives of the arrow so we know its direction
-    dx = arrow_X - remapped_X[arrow_index - 1] 
-    dy = arrow_Y - remapped_Y[arrow_index - 1] 
-    
-    # Create the arrow itself
-    arrow = ax.arrow(arrow_X,arrow_Y,dx,dy,
-                     color=edgecolour, 
-                     head_length = arrowsize, 
-                     head_width = arrowsize, 
-                     linewidth=0.25,
-                     zorder=0)
-    
-   
-    # The curved line itself, without the arrow
-    curved_line = ax.plot(remapped_X, remapped_Y, 
-                           color=edgecolour, 
-                           linewidth=1, 
-                           zorder=0, 
-                           clip_on=False)[0]
-    
-    
-    # Return the references to the curve edge, the arrow and the coordinates of the midpoints
-    return (arrow, curved_line, mid_x,mid_y)
+

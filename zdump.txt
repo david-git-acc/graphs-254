@@ -1,0 +1,213 @@
+s = ( 
+'''
+   A                          D
+                     I
+   C                      F
+          H      
+   B                       E   
+   
+                   J
+   G                    K 
+
+''' )
+
+
+
+edges = "{ A ,  D } , { C ,  F} , {B,E} , (A,B), (A,E), {A,J} "
+
+# G.add_edge("G","K",False, weight=5)
+# G.add_edge("K","G", False, weight=3)
+# G.remove_edge("K","G", both=True)
+# G.add_edge("E","A",both=True)
+# G.remove_edge("D","A")
+# G.add_edge("D","A", both=True)
+
+G.remove_edge("A","B",True)
+G.add_edge("A","C", weight=3)
+G.add_edge("C","A", weight=32)
+# G.add_edge("I","F")
+# G.add_edge("F","I")
+
+G.add_edge("I","J")
+G.add_edge("J","I")
+
+G.add_edge("B","G", weight=37)
+G.add_edge("G","B", weight=6.5)
+
+G.add_edge("F","E")
+G.add_edge("E","F")
+
+print("------------")
+
+# G.add_edge("B","A", both=False)
+
+G.add_edge("G","K")
+G.add_edge("K","G", both=True)
+
+G.add_edge("H","D")
+G.add_edge("D","H")
+
+G.get_edge("G","K").set_weight(4)
+G.get_edge("K","G").set_weight(69)
+
+print("weights" , G.get_edge("G","K").weight)
+
+# G.remove_edge("K","G")
+
+G.get_edge("F","E").set_weight(3)
+
+G.get_edge("E","F").set_weight(2)
+
+G.add_edge("E","F", weight = 7, both=True)
+
+G.remove_edge("D","H")
+
+G.add_edge("J","I", weight=4)
+
+G.get_edge("J","I").set_weight(3)
+
+print(G.get_edge("J","I").weight)
+
+print(G.get_edge("I","J").weight)
+
+G.remove_edge("G","K", both=True)
+
+G.add_edge("G","K", weight=71, edgecolour="red")
+
+G.add_edge("G","K", weight=33, edgecolour="brown", both=True)
+print(G.get_edge("G","K").weight)
+print(G.get_edge("K","G").weight)
+
+#G.add_edge("K","G", weight = 63)
+
+
+
+G.get_vertex("A").set_colour("purple")
+
+# G.remove_vertex("E")
+# G.remove_vertex("A")
+
+# F = G.get_vertex("F")
+
+# print(F.x,F.y)
+
+# G.add_vertex("P", 0.72, 0.72, G.get_vertex("F").radius)
+
+# G.add_edge("I","P", both=True, weight=15)
+
+# G.add_edge("G","B")
+# G.add_edge("B","G")
+# G.add_edge("G","J", weight=3)
+# G.add_edge("J","G", weight=7)
+# G.add_edge("G","J", both=False)
+
+G.get_edge("J","I").set_colour("green")
+G.get_edge("I","J").set_colour("gold")
+G.get_edge("C","A").set_colour("crimson")
+
+G.get_edge("A","E").set_colour("brown")
+G.get_edge("H","D").set_colour("beige")
+G.get_edge("G","K").set_colour("black")
+
+# G.remove_vertex("A")
+# G.remove_vertex("I")
+
+print(G.get_vertex("J").outgoing_edges )
+print(G.get_vertex("J").incoming_edges )
+
+
+
+s = ( 
+'''
+    A       D
+                G
+    B               I
+                H
+    C       F
+    
+
+''' )
+
+
+
+edges = "(B,A),(B,C),(C,F),(A,D),(D,G),(F,H),(H,F) , (G,D), (G,I),(H,I),(B,I), (B,D),(D,B) , (B,F), (F,B), {H,F}"
+
+
+
+# Create a circular self loop arrow at a vertex
+# frac_circum is the fraction of diameter of the circle covered by the self loop
+#               
+#                       -----------------  
+#               -------                  -------
+#            ---                                ---
+#           -                                       -
+#         |                                           |
+#        -                                             -
+#       |                                           _   |    _
+#      |          --------------------------          _ |  _
+#     |  ---------                          ---------     _  
+# -------                   frac_circum * r          -------
+#    X1--------------------------------------------------X2
+#
+# We will cut a chord across the top of the vertex circle, and the points of intersection X1,X2 between the chord and
+# the circle will be used to create another hollow circle, which will be used as the self loop
+#
+def selfloop_arrow(sourcev : Vertex, frac_diam : float, ax, edgecolour : str = "black"):
+    
+    # The x and y coordinates of the vertex
+    x,y = sourcev.x, sourcev.y
+    
+    # The radius of the vertex
+    r = sourcev.radius
+    
+    # The chord length, (from X1 to X2), given as a fraction of the diameter
+    d : float = frac_diam * 2 * r
+    
+    # Calculate the angle theta of the vertex, out of 2pi, needed to have a horizontal length of d for the chord length
+    theta_chord = np.arccos(1-d**2 / (2 * r**2))
+    
+    # The angle used to calculate the chord coordinates of the points of intersection between the self loop and vertex circle
+    theta = (np.pi - theta_chord) / 2
+    
+    # Calculate the coordinates of the rightmost point of the chord 
+    chord_x = x + r * np.cos(theta)
+    chord_y = y + r * np.sin(theta)
+    
+    # Determine the y-coordinate of the centre of the self-loop circle (calculated on paper and then written here)
+    # The centre of the self loop circle will have the same x coordinate so no need to change this
+    selfloop_y = 2 * chord_y - y
+    
+    # Determine the size of the self loop arrow - the graph containing the vertex will have this information stored
+    arrowsize = sourcev.owner.arrowsize
+    
+    # These rotated coordinates will tell us the coordinates of the arrow
+    # We do this by rotating the chord the exact angle (arrowsize/r) 
+    # These points will be nearly identical, so their difference should 
+    mapped_x1,mapped_y1 = rotate(chord_x, chord_y, x, selfloop_y, arrowsize/r+0.0001)
+    mapped_x2,mapped_y2 = rotate(chord_x,chord_y, x, selfloop_y, arrowsize/r)
+    
+    circ = plt.Circle((x,selfloop_y), r, facecolor="white",edgecolor=edgecolour, zorder=0)
+    arrow = plt.arrow(mapped_x1,mapped_y1, 
+                      mapped_x2-mapped_x1,
+                      mapped_y2-mapped_y1, 
+                      head_length = arrowsize, 
+                      head_width = arrowsize, 
+                      color=edgecolour, zorder=0,)
+    
+
+
+    
+    ax.add_patch(circ)
+
+
+
+# Function to determine the current value to multiply the plot by
+#              X
+#   ========================
+#   |          x           |
+#   |     ===========      |
+#   |     |         |  y   | Y
+#   |     |         |      |
+#   |     ===========      |
+#   |                      |
+#   ========================

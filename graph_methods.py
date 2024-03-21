@@ -234,9 +234,10 @@ def add_edges(G : Graph, bi_edges : list[tuple],di_edges : list[tuple]):
         
 # Combine everything together to produce the graph
 # The height ratio is the ratio between the y and x components
-# We add the slight factor to prevent the circles from clipping with the wall
-def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight: float = 0.98, display : bool =False,
-                 vertexcolour : str = "red", edgecolour : str = "black"):
+# Compress determines if we want to compress the schematic first
+def create_graph(schematic : str, edges : str, heightratio : float =2.4,  display : bool =False,
+                 vertexcolour : str = "red", edgecolour : str = "black", compress : bool = True):
+
 
     # Create the plot
     fig, ax = plt.subplots(figsize=(1080*px,1080*px))
@@ -253,7 +254,7 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight:
     G = Graph("G", ax, vertexcolour=vertexcolour, edgecolour=edgecolour)
 
     # Compress the input to eliminate redundant whitespaces
-    schematic = compress_string(schematic)
+    if compress: schematic = compress_string(schematic)
     
     # Get both types of edges from the user's string input in array format
     bi_edges, di_edges = arrify_edges(edges)
@@ -279,40 +280,55 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4, slight:
 s = ( 
 '''
                    B   
-                     
             I             F
 
-        E          A           C
+        E          A          C
         
             H             G     
-    
                    D   
         
 ''' )
 
 
 
-edges = '''(E,A),(A,E),(A,B),(B,A),(A,C),(C,A),(A,D),(D,A),(A,I),(I,A),(A,F),(F,A),(A,H),(H,A),(A,G),(G,A),
-            (B,F),(F,C),(C,G),(G,D),(D,H),(H,E),(E,I),(I,B)'''
+edges = '''(E,A),(A,E),(A,B),(B,A),(A,C),(C,A),(A,D),(D,A),(A,I),(I,A),(A,F),(F,A),(A,H),(H,A),(A,G),(G,A),{B,F},(D,G)
+'''
 
-G = create_graph(compress_string(s), edges, vertexcolour="lime" ,edgecolour="black")
+G = create_graph(compress_string(s), edges, vertexcolour="lime" ,edgecolour="blue")
 
 
 for key, value in G.adjacency_list(reverse=True).items():
     print(key,value)
     
-G.remove_vertex("A")
+G.get_vertex("A").set_colour("pink")
 
-G.add_edge("I","F")
-G.add_edge("F","I")
-G.add_edge("H","F",both=True)
-G.add_edge("G","I", both=True)
-G.add_edge("I","H")
-G.add_edge("H","I")
-G.add_edge("F","G")
-G.add_edge("G","F")
-G.add_edge("H","G")
-G.add_edge("G","H")
+plt.savefig("test2.png")
+
+vertexB = G.get_vertex("B")
+
+G.add_edge("B","B", weight=88)
+
+G.get_edge("B","B").set_colour("red")
+
+G.get_edge("B","B").set_weight(3)
+
+G.get_edge("B","B").set_weight()
+
+G.add_edge("G","D")
+
+G.get_edge("D","G").set_colour("green")
+
+G.remove_edge("D", "G")
+
+G.add_edge("D","G")
+
+G.remove_vertex("D")
+G.remove_vertex("B")
+# G.remove_vertex("F")
+
+G.add_edge("F","F")
+
+# G.remove_edge("B","B")
 
 plt.savefig("test3.png")
 
@@ -321,16 +337,7 @@ plt.savefig("test3.png")
 
 
 
-# Function to determine the current value to multiply the plot by
-#              X
-#   ========================
-#   |          x           |
-#   |     ===========      |
-#   |     |         |  y   | Y
-#   |     |         |      |
-#   |     ===========      |
-#   |                      |
-#   ========================
+
 
 
 
