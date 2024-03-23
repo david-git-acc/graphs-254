@@ -255,8 +255,7 @@ def create_graph(schematic : str, edges : str, weights : list[float] = [], heigh
     ax.set_ylim([0,1])
     
     # Remove the axes
-    if not display:
-        plt.axis("off")
+    if not display: plt.axis("off")
 
     # Compress the input to eliminate redundant whitespaces
     if compress: schematic = compress_string(schematic)
@@ -274,7 +273,8 @@ def create_graph(schematic : str, edges : str, weights : list[float] = [], heigh
     
     # Create the Graph object
     G = Graph("G", ax, vertexcolour=vertexcolour, edgecolour=edgecolour, arrowsize=arrowsize, 
-              vertex_textcolour= vertex_textcolour,edge_textcolour = edge_textcolour)
+              vertex_textcolour= vertex_textcolour,edge_textcolour = edge_textcolour,
+              aspect_ratio = ncols/ (heightratio*nrows))
     
     # Use the information we've gathered to add the vertices to the graph
     add_vertices(G, vertexinfo, nrows,ncols,X,Y)
@@ -325,6 +325,13 @@ G.highlight_edge(("D","A"),"red")
 G.get_edge("F","H").set_textcolour("green")
 G.get_vertex("F").set_textcolour("lime")
 
+G.add_edge("D","C", weight=31)
+G.add_edge("C","D" , weight=298)
+G.add_edge("C","D",both=True, weight=250)
+
+G.get_edge("C","D").highlight("blue")
+G.get_edge("D","C").highlight("violet")
+G.get_edge("D","C").annotate("hahaha")
 
 plt.savefig("test_folder/test3.png", )
 

@@ -61,7 +61,7 @@ class Edge():
         else: self.ax.legend()
         
     # Determine the quadrant (upper left, lower right, etc...) that the edge belongs to, using its midpoint
-    def quadrant(self) -> str: return point_orientation(*self.midpoint)    
+    def quadrant(self) -> str: return point_orientation(*self.midpoint, self.owner.aspect_ratio)    
     
     # Highlight the edge a colour - this is just a wrapper for the graph method
     def highlight(self, colour : str = None, 
@@ -109,6 +109,8 @@ class Edge():
                                     ha="center",
                                     va="center",
                                     backgroundcolor="white")
+            
+            weight_text.set_bbox(dict(zorder=-111, fc="white",ec="white"))
             
             # Link the plot representation with this weight text
             self.plotrep.update({ "text" : weight_text })    

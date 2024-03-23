@@ -7,7 +7,9 @@ from defvertex import Vertex
 # Defining our graph theory objects
 class Graph():
     def __init__(self, name, ax, arrowsize : float =0.01, res : int =100, vertexcolour : str ="red",edgecolour : str="black",
-                 vertex_textcolour : str = "black", edge_textcolour : str = "black", curved_edge_stretchiness : float = 1.4):
+                 vertex_textcolour : str = "black", edge_textcolour : str = "black", curved_edge_stretchiness : float = 1.4,
+                 aspect_ratio : float = None):
+        
         self.name = name
         
         # V maps the NAME of the vertex to the object vertex
@@ -59,7 +61,24 @@ class Graph():
         
         # We need to keep track of all annotations in the graph
         self.annotations : list = []
+        
+        # Get the aspect ratio of the graph
+        self.aspect_ratio = aspect_ratio
 
+    # Set the text colour of every vertex in the graph to a given colour
+    def set_vertex_textcolour(self, colour : str) -> None:
+        
+        # Do for each vertex, set its colour
+        for vertex in list(self.V.keys()):
+            self.get_vertex(vertex).set_textcolour(colour)
+    
+    # Set the text colour of every weight for every edge in the graph to a given colour
+    def set_edge_textcolour(self, colour : str) -> None:
+        
+        # For each edge set its colour
+        for edge in list(self.E.keys()):
+            self.get_edge(*edge).set_textcolour(colour)
+            
     # Remove all the annotations about the graph
     def clear_annotations(self) -> None:
         

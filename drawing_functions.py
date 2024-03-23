@@ -232,17 +232,22 @@ def selfloop_arrow(sourcev, frac_diam : float, ax, edgecolour : str = "black"):
 
 
 # Get the orientation (closest quadrant/corner) of a 2D point in the axes
-def point_orientation(x : float, y : float):
+def point_orientation(x : float, y : float, aspect_ratio : float = 1):
     
-    string = ""
-    if y > 0.5:
-        string += "upper "
-    else:
-        string += "lower "
-        
-    if x > 0.5:
-        string += "right"
-    else:
-        string += "left"
-        
-    return string
+    xlocations = ["left", "right"]
+    ylocations = ["lower" , "upper"]
+    
+    if aspect_ratio > 1:
+        xlocations.insert(1, "center")
+    elif aspect_ratio < 1: 
+        ylocations.insert(1, "center")
+
+    xindex = round( x*len(xlocations)) - 1
+    yindex = round( y*len(ylocations)) - 1
+    
+    
+
+    
+
+    
+    return ylocations[yindex] + " " + xlocations[xindex]

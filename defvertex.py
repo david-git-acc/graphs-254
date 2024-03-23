@@ -58,7 +58,7 @@ class Vertex():
         
           
     # Determine the quadrant (upper left, lower right, etc...) that the vertex belongs to
-    def quadrant(self) -> str: return point_orientation(self.x, self.y)
+    def quadrant(self) -> str: return point_orientation(self.x, self.y, self.owner.aspect_ratio)
             
     # Highlight the vertex a colour - this is just a wrapper for the graph method
     def highlight(self, colour : str = None, 
