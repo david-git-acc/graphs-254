@@ -111,7 +111,8 @@ def string_metainfo(s : str) -> tuple:
 
 
 # Given a string that specifies the edges of the graph, turn it into a manageable array format
-def arrify_edges(edges : str) -> tuple:
+# Also stores the weights of each edge so that they can be represented
+def arrify_edges(edges : str , weights : list[float]) -> tuple:
     
     # The list that will store all of our bidirectional edges
     bid_edgelist = []
@@ -121,6 +122,12 @@ def arrify_edges(edges : str) -> tuple:
     
     # Remove all whitespaces/newlines and then split based on commas so we can identify the edges
     edges = edges.replace(" ", "").replace("\n","").split(",")
+    
+    # Determine how many more edges there are than weights so we can 
+    weights_len_diff =  len(edges) - len(weights)
+    
+    # Make the weights the same size - if no weight is specified then add None so that the weight is not displayed
+    weights += [""] * weights_len_diff
     
     # Now we iterate over each edge (hence a step size of 2 as we go over each vertex) 
     # And create the edges
@@ -136,14 +143,14 @@ def arrify_edges(edges : str) -> tuple:
         # Bidirectional edges
         if substr[0] == "{":
             
-            # Add the edge
-            bid_edgelist.append((vertexA,vertexB))
+            # Add the edge and corresponding weight (//2 because each edge is 2 parts)
+            bid_edgelist.append((vertexA,vertexB, weights[i // 2]))
             
         # Single direction edges
         elif substr[0] == "(":
             
-            # Add the directed edge
-            dir_edgelist.append((vertexA,vertexB))
+            # Add the directed edge and its corresponding weight
+            dir_edgelist.append((vertexA,vertexB, weights[i // 2]))
             
     # We will use the list of edges to construct the graph
     return (bid_edgelist, dir_edgelist)
@@ -200,17 +207,17 @@ def get_coords(x : float ,y : float, nrows : int,ncols : int, X : np.ndarray,Y :
 
 
 # Plot the vertices on the graph
-def add_vertices(G : Graph, vertexinfo : list[tuple], nrows : int,ncols : int, X : np.ndarray,Y : np.ndarray, slight : float =0.98) -> None:
+def add_vertices(G : Graph, vertexinfo : list[tuple], nrows : int,ncols : int, X : np.ndarray,Y : np.ndarray) -> None:
     
     # Determine width of the graph which will be used to determine the vertex size
     width = X.max() - X.min()
     
     # Radius of each circle
-    circrad = slight * width/(2*ncols)
+    circrad = width/(2*ncols)
     
     # Drawing each vertex
     for vertex, x, y in vertexinfo:
-        
+
         # Get the vertex coordinates
         vertex_x, vertex_y = get_coords(x,y,nrows,ncols,X,Y)
         
@@ -220,23 +227,24 @@ def add_vertices(G : Graph, vertexinfo : list[tuple], nrows : int,ncols : int, X
 def add_edges(G : Graph, bi_edges : list[tuple],di_edges : list[tuple]):
     
     # Plotting the bidirectional edges is easier
-    for vertexA, vertexB in bi_edges:
+    for vertexA, vertexB, weight in bi_edges:
         
         # Add the edges
-        G.add_edge(vertexA,vertexB, both=True)
+        G.add_edge(vertexA,vertexB, both=True, weight=weight)
         
     # Now for the directional edges it's slightly harder
-    for vertexA, vertexB in di_edges:
+    for vertexA, vertexB, weight in di_edges:
         
         # Add the edge to the graph
-        G.add_edge(vertexA,vertexB, both=False)
+        G.add_edge(vertexA,vertexB, both=False, weight=weight)
         
         
 # Combine everything together to produce the graph
 # The height ratio is the ratio between the y and x components
 # Compress determines if we want to compress the schematic first
-def create_graph(schematic : str, edges : str, heightratio : float =2.4,  display : bool =False,
-                 vertexcolour : str = "red", edgecolour : str = "black", compress : bool = True):
+def create_graph(schematic : str, edges : str, weights : list[float] = [], heightratio : float =2.4,  display : bool =False,
+                 vertexcolour : str = "red", edgecolour : str = "black", compress : bool = True,
+                 vertex_textcolour : str = "black", edge_textcolour : str = "black"):
 
 
     # Create the plot
@@ -250,14 +258,11 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4,  displa
     if not display:
         plt.axis("off")
 
-    # Create the Graph object
-    G = Graph("G", ax, vertexcolour=vertexcolour, edgecolour=edgecolour)
-
     # Compress the input to eliminate redundant whitespaces
     if compress: schematic = compress_string(schematic)
     
     # Get both types of edges from the user's string input in array format
-    bi_edges, di_edges = arrify_edges(edges)
+    bi_edges, di_edges = arrify_edges(edges, weights)
     
     # Get the vertexinfo and number of rows and columns by analysing the string
     vertexinfo,nrows,ncols = string_metainfo(schematic)
@@ -265,13 +270,19 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4,  displa
     # Create our X-Y grid
     _,_,X,Y = create_grid(ncols,nrows, heightratio, display=display)
     
+    arrowsize = (2/3) * ( X.max() - X.min() ) / (2 * ncols)
+    
+    # Create the Graph object
+    G = Graph("G", ax, vertexcolour=vertexcolour, edgecolour=edgecolour, arrowsize=arrowsize, 
+              vertex_textcolour= vertex_textcolour,edge_textcolour = edge_textcolour)
+    
     # Use the information we've gathered to add the vertices to the graph
     add_vertices(G, vertexinfo, nrows,ncols,X,Y)
     
     # Plot the edges onto the graph using all our info
     add_edges(G, bi_edges, di_edges)
 
-    plt.savefig("test2.png")
+    plt.savefig("test_folder/test2.png")
     
     # Return the graph so we can use it
     return G
@@ -279,58 +290,43 @@ def create_graph(schematic : str, edges : str, heightratio : float =2.4,  displa
 
 s = ( 
 '''
-                   B   
-            I             F
-
-        E          A          C
-        
-            H             G     
-                   D   
+    J    A       D
+    
+                     G
+E      B                  I                      
+                     H
+                     
+    K    C       F
+    
         
 ''' )
 
 
 
-edges = '''(E,A),(A,E),(A,B),(B,A),(A,C),(C,A),(A,D),(D,A),(A,I),(I,A),(A,F),(F,A),(A,H),(H,A),(A,G),(G,A),{B,F},(D,G)
-'''
+edges = '''(B,A),(B,C),(C,F),(A,D),(D,G),(F,H),(H,F) , (G,D), (G,I),(H,I),(B,I), (B,D),(D,B) , (B,F), (F,B), {H,F}, {D,F}, {G,H},
+(K,C),(C,K),(J,A),(A,J),(B,J),(J,B),(B,K),(K,B), (E,J),(E,K), (E,B)'''
 
-G = create_graph(compress_string(s), edges, vertexcolour="lime" ,edgecolour="blue")
+weights = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+
+G = create_graph(s, edges, weights, vertexcolour="lime" ,edgecolour="black", vertex_textcolour="red", edge_textcolour="brown")
 
 
-for key, value in G.adjacency_list(reverse=True).items():
-    print(key,value)
-    
-G.get_vertex("A").set_colour("pink")
+D = G.get_vertex("D")
 
-plt.savefig("test2.png")
+D.annotate("hello I am a vertex")
+G.get_vertex("A").annotate("No, I am the vertex", clear_previous= False)
 
-vertexB = G.get_vertex("B")
+G.get_edge("B","C").annotate("Nope!")
 
-G.add_edge("B","B", weight=88)
+G.get_edge("A","D").highlight("red")
 
-G.get_edge("B","B").set_colour("red")
+G.highlight_edge(("D","A"),"red")
 
-G.get_edge("B","B").set_weight(3)
+G.get_edge("F","H").set_textcolour("green")
+G.get_vertex("F").set_textcolour("lime")
 
-G.get_edge("B","B").set_weight()
 
-G.add_edge("G","D")
-
-G.get_edge("D","G").set_colour("green")
-
-G.remove_edge("D", "G")
-
-G.add_edge("D","G")
-
-G.remove_vertex("D")
-G.remove_vertex("B")
-# G.remove_vertex("F")
-
-G.add_edge("F","F")
-
-# G.remove_edge("B","B")
-
-plt.savefig("test3.png")
+plt.savefig("test_folder/test3.png", )
 
 
 

@@ -125,7 +125,7 @@ def curved_directed_edge_arrow(sourcev, destv, d : float, ax, edgecolour : str =
     arrowsize = sourcev.owner.arrowsize
     
     # The index of the arrow determines how far along the line it is 
-    arrow_index = int( 0.95* (D-sourcev.radius) * res / D )
+    arrow_index = int( 0.94* (D-sourcev.radius) * res / D )
     
     # Determine the x and y coordinates of the arrow
     arrow_X = remapped_X[arrow_index]
@@ -211,7 +211,7 @@ def selfloop_arrow(sourcev, frac_diam : float, ax, edgecolour : str = "black"):
     mapped_x2,mapped_y2 = rotate(chord_x,chord_y, x, selfloop_y, arrowsize/r)
     
     # This the slefloop, we use a white facecolor to make sure it's hollow to create the self loop appearance
-    circ = plt.Circle((x,selfloop_y), r, facecolor="white",edgecolor=edgecolour, zorder=0)
+    circ = plt.Circle((x,selfloop_y), r, facecolor="white",edgecolor=edgecolour, zorder=0, clip_on=False)
 
     # The circle must be placed on the same axes as the vertex, obviously
     ax.add_patch(circ)
@@ -229,3 +229,20 @@ def selfloop_arrow(sourcev, frac_diam : float, ax, edgecolour : str = "black"):
     # We give back the arrowhead and circle so they can be referenced
     # We also give the midpoint coordinates of the arrow so we can set an edge weight for this self loop
     return (arrow, circ, x, selfloop_y + r)
+
+
+# Get the orientation (closest quadrant/corner) of a 2D point in the axes
+def point_orientation(x : float, y : float):
+    
+    string = ""
+    if y > 0.5:
+        string += "upper "
+    else:
+        string += "lower "
+        
+    if x > 0.5:
+        string += "right"
+    else:
+        string += "left"
+        
+    return string

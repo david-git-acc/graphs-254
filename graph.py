@@ -1,11 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from drawing_functions import directed_edge_arrow, curved_directed_edge_arrow, selfloop_arrow
+from drawing_functions import directed_edge_arrow, curved_directed_edge_arrow, selfloop_arrow, point_orientation
+from defedge import Edge
+from defvertex import Vertex
 
 # Defining our graph theory objects
 class Graph():
     def __init__(self, name, ax, arrowsize : float =0.01, res : int =100, vertexcolour : str ="red",edgecolour : str="black",
-                 textcolour : str = "black", curved_edge_stretchiness : float = 1.4):
+                 vertex_textcolour : str = "black", edge_textcolour : str = "black", curved_edge_stretchiness : float = 1.4):
         self.name = name
         
         # V maps the NAME of the vertex to the object vertex
@@ -15,6 +17,23 @@ class Graph():
         # E maps a pair (source name, destination name) to the actual object edge
         # E.g for vertices called U and V, then we have an entry { ("U", "V") : (Object Edge() at 0x2392230230)} 
         self.E : dict[tuple[str,str], Vertex] = {}
+        
+        # Store all highlighted vertices and edges
+        # The user will be able to highlight vertices and edges in the colour they want
+        self.highlighted_vertices : dict = {}
+        self.highlighted_edges : dict = {}
+        
+        # This ratio determines how heavy the highlighting on a vertex will be
+        self.highlight_ratio_vertices = 1.4
+        
+        # Ditto, but for edges
+        self.highlight_ratio_edges = 10
+        
+        # This value states how much transparency the highlighted regions will have - 0 is invisible, 1 is opaque
+        self.highlight_alpha = 0.5 
+        
+        # Determines if highlighting will be done OVER the vertices (True) and edges or underneath (False)
+        self.highlight_through = False
         
         # Get a reference to the axis
         self.ax = ax
@@ -26,7 +45,8 @@ class Graph():
         self.edgecolour = edgecolour
         
         # The textcolour for all the weights and vertices
-        self.textcolour = textcolour
+        self.vertex_textcolour = vertex_textcolour
+        self.edge_textcolour = edge_textcolour
         
         # Set the arrowsize - the size of the arrows for directed edges
         self.arrowsize = arrowsize
@@ -37,6 +57,312 @@ class Graph():
         # Determine the resolution of our edges, in number of data inputs
         self.res = res
         
+        # We need to keep track of all annotations in the graph
+        self.annotations : list = []
+
+    # Remove all the annotations about the graph
+    def clear_annotations(self) -> None:
+        
+        # Destroy the labels
+        for annotation in self.annotations:
+            annotation.set_label(None)
+        
+        # Destroy the references
+        self.annotations = []
+        
+        # Finally destroy the legend
+        try: self.ax.get_legend().remove()
+        except: pass    
+
+    # Set all vertices in the graph to a given colour.
+    def set_vertex_colour(self, colour : str) -> None:
+        
+        # Get each vertex and assign it the same colour - we will create a mapping here
+        vertex_list : list[str] = list(self.V.keys())
+        colour_list : list[str] = [colour] * len(vertex_list)
+        
+        # This will be the assignment of colours (all the same colour) to assign to each vertex
+        colour_assignment : dict[str,str] = dict(zip(vertex_list, colour_list))
+        
+        # Perform the colour assignment
+        self.assign_vertex_colours(colour_assignment)
+        
+        
+    # Set all edges in the graph to a given colour.
+    def set_edge_colour(self, colour : str) -> None:
+        
+        # Get each edge and assign it the same colour - we will create a mapping here
+        edge_list : list[tuple[str,str]] = list(self.E.keys())
+        colour_list : list[str] = [colour] * len(edge_list)
+        
+        # This will be the assignment of colours (all the same colour) to assign to each edge
+        colour_assignment : dict[tuple[str,str],str] = dict(zip(edge_list, colour_list))
+        
+        # Perform the colour assignment
+        self.assign_edge_colours(colour_assignment)
+        
+    
+    # Given a dictionary of vertex keys and colour values, for each vertex key set its colour to the corresponding colour
+    def assign_vertex_colours(self, colours : dict[str,str]) -> None:
+        
+        # For each vertex given in the dict, we set its colour to the specified colour
+        for vertex, colour in list(colours.items()):
+            
+            # Use the existing methods to trivialise the implementation
+            self.get_vertex(vertex).set_colour(colour)
+    
+    
+    # Given a dictionary of edge keys and colour values, for each edge set its colour to the corresponding colour    
+    def assign_edge_colours(self, colours : dict[tuple[str,str] ,str]) -> None:
+        
+        # Same as above
+        for edge, colour in list(colours.items()):
+            
+            # Again just use our methods to make this an easy task
+            self.get_edge(*edge).set_colour(colour)
+            
+        
+    # Remove all the highlighting from the graph
+    def clear_highlighting(self) -> None:
+        
+        # Clear all the edges - can't get the edge because some highlighted edges don't exist in the graph
+        for highlighted_edge in list(self.highlighted_edges.keys()):
+            
+            # By highlighting it as None we clear it
+            self.highlight_edge(highlighted_edge, None)
+        
+        # Same idea for vertices except all vertices must exist in the graph
+        for highlighted_vertex in list(self.highlighted_vertices.keys()):
+            
+            # By highlighting the vertices None we also clear them too
+            self.highlight_vertex(highlighted_vertex, None)
+        
+    
+    # Highlight a vertex with a given colour
+    def highlight_vertex(self, vertex_name, colour : str = None,
+    highlight_ratio : float = None, alpha : float = None, highlight_through : bool = None) -> None:
+        
+        # If these values are not set by the user, we will use the default values
+        # Unfortunately we can't set predetermined values in the function definition as they are attributes
+        if highlight_ratio is None: highlight_ratio = self.highlight_ratio_vertices
+        if alpha is None: alpha = self.highlight_alpha
+        if highlight_through is None: highlight_through = self.highlight_through
+        
+        # We need the properties of the vertex to 
+        the_vertex : Vertex = self.get_vertex(vertex_name)
+        
+        # Check if we've already highlighted this vertex 
+        highlighting = self.highlighted_vertices.get(vertex_name)
+        
+        # If there's already a highlighting we need to remove it and add a new highlighting
+        if highlighting is not None:
+            
+            # If it does exist, remove its visual representation and then get rid of it
+            highlighting.remove()
+            
+            # Delete it here to make sure we don't accidentally reference it again in the future
+            del self.highlighted_vertices[vertex_name]
+
+            # If they set no colour or as None then we need to remove it and then stop
+            if colour is None or str(colour).lower() == "none":
+                
+                # Get rid of the reference and then we are done
+                del the_vertex.plotrep["highlight"]
+                return
+        
+        # Create the highlighting 
+        highlight = plt.Circle((the_vertex.x, the_vertex.y), 
+                               the_vertex.radius * self.highlight_ratio_vertices,
+                               color = colour,
+                               zorder = highlight_through * 1000,
+                               alpha=alpha, clip_on = False)
+        
+        # Add the patch to the visual representation of the graph
+        self.ax.add_patch(highlight)
+        
+        # Add to the list of highlighted vertices and the vertex's plot representation (so if it's removed so is the highlight)
+        self.highlighted_vertices.update({ vertex_name : highlight })
+        the_vertex.plotrep.update({ "highlight" : highlight })
+    
+    
+    # Highlight an edge in the graph a given colour
+    def highlight_edge(self, edge_name, colour : str = None, 
+    highlight_ratio : float = None, alpha : float = None, highlight_through : bool = None) -> None:
+    
+        # If these values are not set by the user, we will use the default values
+        # Unfortunately we can't set predetermined values in the function definition as they are attributes
+        if highlight_ratio is None: highlight_ratio = self.highlight_ratio_edges
+        if alpha is None: alpha = self.highlight_alpha
+        if highlight_through is None: highlight_through = self.highlight_through
+        
+        # If the user specifies nothing or sets it to be none, then we just remove the edge and go home
+        if colour == None or str(colour).lower() == "none":
+            self.remove_edge_highlight(edge_name)
+            return
+    
+        # We will look at the edge's properties to create the highlighting
+        the_edge : Edge = self.get_edge(*edge_name)
+        other_edge : Edge = self.get_edge(*(edge_name[::-1]))
+        
+        # We need to enforce particular logic if we encounter a self loop
+        is_self_loop = the_edge is not None and the_edge.source == the_edge.destination
+        
+        # There are different cases depending on whether the edge actually exists in the graph
+        if the_edge is not None:
+            
+            # Get the current visual representation of the edge which we will need to make highlights
+            visual_edge = the_edge.plotrep["visual"]
+            
+            # We will handle different cases depending on the type of edge we are dealing with
+            if is_self_loop:
+  
+                # In this case the line is actually a circle with some centre x y and radius r that we need to highlight
+                highlighted_line = plt.Circle(visual_edge.center, visual_edge.radius, 
+                                                alpha = alpha,
+                                                linewidth = visual_edge.get_linewidth() * self.highlight_ratio_edges,
+                                                edgecolor = colour,
+                                                facecolor = "white",
+                                                zorder = highlight_through * 1000,
+                                                clip_on = False)
+                
+                self.ax.add_patch(highlighted_line)
+                
+            # If both edges (A->B, B->A) exist, it must be a bidirectional edge
+            # So either a single universal edge OR 2 directional edges, either way will work
+            elif other_edge is not None:
+                
+                # Create the highlighted line using the data of the existing line
+                highlighted_line = self.ax.plot(visual_edge.get_xdata(), visual_edge.get_ydata(), 
+                                            linewidth = visual_edge.get_linewidth() * self.highlight_ratio_edges,
+                                            color = colour,
+                                            alpha = alpha,
+                                            zorder = highlight_through * 1000,
+                                            clip_on = False)[0]
+                
+            # Otherwise it must be a single directed edge
+            else:
+                
+                # For these arrows we need to make the multiplier 4x greater to be of the same width
+                highlighted_line = self.ax.plot([the_edge.source.x, the_edge.destination.x], 
+                            [the_edge.source.y, the_edge.destination.y],
+                                linewidth = visual_edge.get_linewidth() * self.highlight_ratio_edges*4,
+                                color = colour,
+                                alpha = alpha,
+                                zorder = highlight_through * 1000,
+                                clip_on = False)[0]
+                
+            # Now that we have our highlighted lines, we can delete the original highlight if it exists
+            self.remove_edge_highlight(edge_name)
+            
+            # Now add this highlight to the list of visual props for this edge
+            the_edge.plotrep["highlight"] = highlighted_line
+            
+            # If it's a bidirectional edge or single directed edge then we need to add both sides of the highlight
+            if not the_edge.curved and not is_self_loop:
+                # We need to consider both edges to prevent colouring the same line with 2 different colours at once
+                self.highlighted_edges.update({ edge_name : highlighted_line,
+                                                edge_name[::-1] : highlighted_line })
+                
+                # If a bidirectional edge then need to also add this highlight to the other edge's list of visual props
+                if other_edge is not None:
+                    other_edge.plotrep["highlight"] = highlighted_line
+                
+            else:
+                
+                # If a self loop then we only need to add this case once obviously as reverse of (X,X) is (X,X)
+                # Alternatively if we're curved then the other edge doesn't matter 
+                self.highlighted_edges[edge_name] = highlighted_line
+        
+        # Otherwise if we're trying to highlight an edge that doesn't exist:    
+        else: 
+            
+            # Get rid of any previous highlighting for this edge there may've been
+            self.remove_edge_highlight(edge_name)
+            
+            # Highlighting self looping edges that don't exist is not allowed in this implementation
+            if edge_name[0] == edge_name[1]: raise Exception("Attempted to highlight nonexistent self-loop")
+            
+            # We need to get the coordinates of the hypothetical source and destination vertices to create the line
+            sourcev : Vertex = self.get_vertex(edge_name[0])
+            destv : Vertex = self.get_vertex(edge_name[1])
+            
+            # Plot the highlighted straight line from the start to the end
+            highlighted_line = self.ax.plot([sourcev.x, destv.x], 
+                            [sourcev.y,destv.y],
+                                linewidth = self.highlight_ratio_edges,
+                                color = colour,
+                                alpha = alpha,
+                                zorder = highlight_through * 1000,
+                                clip_on = False)[0]
+            
+            # If the edge doesn't exist then we need to add this from both directions
+            self.highlighted_edges.update({ edge_name : highlighted_line,
+                                edge_name[::-1] : highlighted_line })
+            
+            # If the other edge exists, it MUST be a single directed edge
+            if other_edge is not None:
+                # Add the highlighted line to its plot representation so we can reference it from there
+                other_edge.plotrep["highlight"] = highlighted_line
+     
+       
+       
+    
+    # Remove an edge highlighting in the graph
+    def remove_edge_highlight(self, edge_name : tuple[str]) -> None:
+        
+        # We will look at the edge's properties to create the highlighting
+        the_edge : Edge = self.get_edge(*edge_name)
+        other_edge : Edge = self.get_edge(*(edge_name[::-1]))
+        
+        # We need to enforce particular logic if we encounter a self loop
+        is_self_loop = the_edge is not None and the_edge.source == the_edge.destination
+        
+        # Check if there is already a highlighting present for this edge
+        highlighting = self.highlighted_edges.get(edge_name)
+    
+        # If the highlighting doesn't exist, don't do anything
+        if highlighting is not None:
+            
+            # First remove the visual representation
+            highlighting.remove()
+            
+            # Then delete the reference in the highlighted edges so we don't accidentally reference it later
+            del self.highlighted_edges[edge_name]
+            
+            # # If the reverse edge exists and isn't a self loop (otherwise we already deleted it)
+            # if other_edge is not None and not is_self_loop and not the_edge.curved:
+                
+            # Deal with cases where the edge is and is not none separately
+            if the_edge is not None:
+                
+                # remove it from the reference to the edge's plot representation so we don't try to delete it twice later
+                del the_edge.plotrep["highlight"]
+                
+                if not is_self_loop and not the_edge.curved:
+                    
+                    # But also since any non-curved, non-selfloop edge will be referenced both ways we need to get rid of the
+                    # other reference to in the highlighted edges as well
+                    del self.highlighted_edges[edge_name[::-1]]
+                    
+                    # If we have a bidirectional edge (no self loop since we already would've removed everything before)
+                    # Make sure it's not curved to prevent 2 single-directional edges from having their highlights removed
+                    if other_edge is not None:
+                        
+                        # Remove the highlight from its references as needed
+                        del other_edge.plotrep["highlight"]
+                    
+            # If the edge doesn't exist the logic becomes a little simpler
+            else:
+                
+                # If the edge doesn't exist then it will be referenced both ways so delete this too
+                del self.highlighted_edges[edge_name[::-1]]
+                
+                # If the reverse edge exists then since we've removed the highlight
+                # then we need to remove its highlight representation as well
+                if other_edge is not None:
+                    del other_edge.plotrep["highlight"]
+            
+         
     # Create adjacency list for the graph
     # The reverse flag when set to True will give all the INCOMING edges for the graph rather than outgoing
     def adjacency_list(self,reverse=False):
@@ -79,17 +405,35 @@ class Graph():
     def add_edge(self, source_name : str, destination_name : str, both : bool = False, weight : float = None,
                  edgecolour : str = None) -> None:
         
+
+        
         # Make the user choose an edgecolour or we use the default
         if edgecolour is None: edgecolour = self.edgecolour
         
         # Get the source and destination vertices
-        sourcev : Vertex = self.V.get(source_name)
-        destv : Vertex = self.V.get(destination_name)
+        sourcev : Vertex = self.get_vertex(source_name)
+        destv : Vertex = self.get_vertex(destination_name)
+        
+        
+        # We need to check to see if these edges already exist
+        AtoB : Edge = self.get_edge(source_name, destination_name)
+        BtoA : Edge = self.get_edge(destination_name, source_name)
+        
+        # If both edges already exist and we're trying to get a bidirectional, this may cause problems
+        # To fix these problems, we ignore the construction and just assign the weights instead
+        # This will give us identical functionality but prevent bugs
+        if both and AtoB is not None and BtoA is not None:
+            
+            # Set both the weights to be the same
+            AtoB.set_weight(weight)
+            BtoA.set_weight(weight)
+            
+            # We are done now, we need to stop here to avoid bugs
+            return
         
         # Check if we have a self loop, where the source IS the destination
         if sourcev == destv:
-            print("Selfloop!" , sourcev.name)
-            
+
             # Create the selflooping arrow - we need the arrowhead
             selfloop_arrowhead, visual_edge, midpoint_x, midpoint_y = selfloop_arrow(sourcev,0.5, self.ax, edgecolour)
             
@@ -111,15 +455,6 @@ class Graph():
         # Check if the other edge exists
         other_edge : Edge = self.E.get((destination_name, source_name))
         
-        # # If we want 2 directed edges but they have the same weight then there's no point in making a curved line
-        # # So we will make them the same edge instead so that the graph is not unnecessarily complicated
-        # if not both and weight is not None and other_edge is not None and other_edge.weight == weight :
-        #     both = True
-            
-
-        
-
-            
         # If both edges exist then we remove the arrows
         if both: 
             
@@ -335,13 +670,17 @@ class Graph():
             del self.V[vertex_name]
     
     # Add a vertex to the graph 
-    def add_vertex(self, vertex_name : str, x : float, y : float, radius : float, colour : str = None) -> None:
+    def add_vertex(self, vertex_name : str, x : float, y : float, radius : float, colour : str = None, 
+                   textcolour : str = None) -> None:
         
         # If the user doesn't input any choice then let it be the default choice
         if colour is None: colour = self.vertexcolour
         
+        # Same for the text colour of the vertex
+        if textcolour is None: textcolour = self.vertex_textcolour
+        
         # Instantiate the vertex
-        new_vertex = Vertex(self, vertex_name, x, y, radius, colour=colour)
+        new_vertex = Vertex(self, vertex_name, x, y, radius, colour=colour, textcolour=textcolour)
         
         # Create a circle for the vertex
         circ = plt.Circle((x,y), radius, 
@@ -357,10 +696,10 @@ class Graph():
         new_vertex.plotrep.update({ "visual" : circ })
         
         # Write the name of the vertex in the circle, centred in the circle
-        vertex_text = plt.text(x,y, vertex_name, 
+        vertex_text = self.ax.text(x,y, vertex_name, 
                  fontsize=150*np.pi*radius, 
                  zorder=2,
-                 color="black",
+                 color=textcolour,
                  ha="center",
                  va="center")
 
@@ -373,278 +712,11 @@ class Graph():
         
         
         
-# Defining a vertex
-class Vertex():
-    def __init__(self, G : Graph, name : str, x : float, y : float, radius : float, colour : str = None):
-        self.owner = G
-        self.ax = G.ax
-        self.name = name
-        self.x = x
-        self.y = y
-        self.radius = radius  
-        
-        # The edges of the vertex map the NAME of the destination vertex to the object vertex
-        # E.g if this vertex is called U, and we have an outgoing edge to V, then an entry would be
-        # { "V" : (Object Vertex() at 0x823299238238) }
-        self.outgoing_edges : dict[str, Vertex] = {}
-        self.incoming_edges : dict[str, Vertex] = {}
-        self.plotrep : dict = {}
-        
-        # The colour of the vertex - can be overridden by the user if necessary
-        if colour is None:
-            self.colour = G.vertexcolour
-        else:
-            # If the user inputs a colour choice then respect that choice
-            self.colour = colour
-            
-    # Change the colour of the vertex
-    def set_colour(self, newcolour : str) -> None:
-        
-        # Remove the existing vertex
-        self.plotrep["visual"].remove()
-        
-        self.colour = newcolour
-        
-        # Create a circle for the vertex
-        circ = plt.Circle((self.x,self.y), self.radius, 
-                          facecolor=self.colour,
-                          edgecolor="black",
-                          zorder=1, 
-                          clip_on=False )
-        
-        # Add the circle
-        self.ax.add_patch(circ)
-        
-        # Update the plot representation with the new circle
-        self.plotrep["visual"] = circ
-        
-    # Remove this vertex's entire visual representation on the graph
-    def plot_remove(self) -> None:
 
-        # For everything in the representation, delete ite
-        for plotprop in list(self.plotrep.values()):
-            
-            # Because it's very hard to check if it's already there without creating another reference
-            # We will have to just manually try and do nothing if it's already been deleted
-            try:
-                plotprop.remove()
-            except:
-                pass
-        
-        # Clear the plot representation, deleting all references to these axes objects
-        # and making them eligible for garbage collection
-        self.plotrep = {}
-        
-    # Add a directed edge to our vertex
-    # destination is the destination vertex (bug in mypy prevents me from adding type hints)
-    # visual_edge is the actual plotted edge on the plot
-    # weight is the float weight assigned to the edge
-    # the midpoint can be optionally input 
-    def add_edge(self, dest, visual_edge, weight : float = None, midpoint : list[float,float] = None, 
-                 edgecolour : str = None):
-        
-        # If no edgecolour selected, let it be the default
-        if edgecolour is None: edgecolour = self.owner.edgecolour
-        
-        # Make sure this edge actually exists
-        if not isinstance(dest, Vertex):
-            raise Exception(f"Destination vertex for outgoing edge from {self.name} does not exist")
-        
-        # Instantiate the edge with all the information
-        edge = Edge(self, dest, weight, midpoint=midpoint, colour=edgecolour)
-        
-        # The edge will now have its visual representation linked to it
-        edge.plotrep.update({ "visual" : visual_edge })
-        
-        # Add the weight of the edge
-        edge.set_weight(weight, consistent=False)
-
-        # Add the edge to our list of edges
-        self.outgoing_edges.update({ dest.name : dest })
-        
-        # The destination will now have an incoming edge, so add that
-        dest.incoming_edges.update({ self.name : self })
-        
-        # Add to the set of edges in the graph
-        self.owner.E.update({ (self.name, dest.name) : edge })
-    
-  
-    # Get the number of edges entering this vertex
-    def indegree(self) -> int: return len(self.incoming_edges)
-    
-    # Get the number of edges leaving this vertex
-    def outdegree(self) -> int: return len(self.outgoing_edges)
-        
-    # Get the degree of the vertex - bidirectional edges are NOT counted twice
-    def degree(self) -> int:
-        
-        # Get the names of all incoming and outgoing edges so we can identify how many of them there are
-        incoming_edge_names : list[str] = list(self.incoming_edges.keys())
-        outgoing_edge_names : list[str] = list(self.outgoing_edges.keys())
-        
-        # If we combine incoming and outgoing and then make them a set we avoid counting the same connection twice
-        all_connected_edge_names : set = set( incoming_edge_names + outgoing_edge_names )
-        
-        # Then the number of connections is just the number of vertices that EITHER 
-        # have an incoming or outgoing edge with this vertex
-        return len(all_connected_edge_names)
         
         
 
-# Defining an edge
-# Every vertex has a source and destination vertex, and a midpoint (which may be specified manually if the user wants)
-# Also we have an optional weight which can be used
-# The curved attribute determines whether this edge is a curved directed edge or not
-class Edge():
-    def __init__(self, source : Vertex, destination : Vertex, weight : float = None, midpoint : list[float,float] = None,
-                 curved : bool = False, colour : str = None):
-        
-        # The source and destination vertices must belong to the same graph
-        if source.owner is not destination.owner:
-            raise Exception(f"Cannot create edge from vertex {source.name} to vertex {destination.name}: they belong to different graphs")
-        
-        self.owner = source.owner
-        self.source = source
-        self.ax = source.ax
-        self.destination = destination
-        self.plotrep : dict = {}
-        self.weight = weight
-        self.colour = colour
-        self.curved = curved
-        
-        # Assigning midpoint - if not specified we just take the midpoint of the source and destination verticess
-        if midpoint is not None:
-            self.midpoint = midpoint
-        else:
-            # Let it be the linear midpoint so that we know it's specified 
-            self.midpoint = [(source.x+destination.x)/2, (source.y+destination.y)/2]
-        
-        self.colour = colour
-        
-        # If no colour is specified then let it be the default
-        if colour is None: colour = self.owner.edgecolour
-            
-    # Set the edge's weight and add it to the graphical representation
-    # Default value is None, so by not specifying any input you remove the edge weight
-    # The consistent boolean will try to ensure consistent edge weights
-    def set_weight(self, val : float = None, consistent : bool = True) -> None:
-    
-        # Delete the existing weight text if it exists
-        if self.plotrep.get("text") is not None:
-            self.plotrep["text"].remove()
-            del self.plotrep["text"]
-            
-        # Update the weight to the specified value
-        self.weight = val
-        
-        # Check if the other edge from destination to source exists
-        other_edge : Edge = self.owner.get_edge(self.destination.name, self.source.name)
-        
-        # If we have no double arrow, we are a single bidirectional edge then
-        # we must update the counterpart edge's weight as well to prevent inconsistency
-        if consistent and not self.curved and other_edge is not None and other_edge.weight != val:
-            other_edge.set_weight(val)
-        
-        # If the weight actually exists: otherwise, don't bother
-        if self.weight is not None: 
-            
-            # Get the radius of the vertex as it is used to determine the fontsize
-            radius = self.source.radius
-            
-            # Place the text on the plot
-            weight_text = self.ax.text(*self.midpoint, self.weight, 
-                                    fontsize = 150*np.pi*radius,
-                                    color="black",
-                                    zorder=200, 
-                                    ha="center",
-                                    va="center",
-                                    backgroundcolor="white")
-            
-            # Link the plot representation with this weight text
-            self.plotrep.update({ "text" : weight_text })    
-    
-    # Change the colour of the edge - we need a special method for this because of how complex it can be
-    def set_colour(self, newcolour : str ) -> None:
-        
-        # 3 cases: curved, directed or bidirectional
-        # Try to retrieve the other edge. If it doesn't exist, then we know it must be directed
-        other_edge : Edge = self.owner.get_edge(self.destination.name, self.source.name)
-        
-        # This gets rid of the edge's visual representation on the plot so we can add a new version
-        self.plotrep["visual"].remove()
-        
-        self.colour = newcolour
-        
-        # Check if we are a self loop, as this requires unique code
-        if self.source == self.destination:
-            
-            # Remove the selfloop arrow component as well
-            self.plotrep["selfloop_arrow"].remove()
-            
-            # Generate the new self loop edge 
-            new_edge_arrow, new_edge, _, _ = selfloop_arrow(self.source, 0.5, self.ax, 
-                                                            self.colour)
-            
-            # Since the last two cases don't have arrows we do it separately here
-            self.plotrep["selfloop_arrow"] = new_edge_arrow
-        
-        # Create a different type of line depending on the edge type
-        # Curved arrows mean we have 2 directed edges in both directions
-        elif self.curved:
-            
-            # If we are a curved arrow then we also need to remove the existing arrow as well
-            self.plotrep["arrow"].remove()
 
-            # Create the new edge on the plot
-            new_edge_arrow, new_edge,_,_ = curved_directed_edge_arrow(self.source,
-                                                self.destination,
-                                                self.source.radius * self.owner.curved_edge_stretchiness,
-                                                self.ax,
-                                                self.colour)
-            
-            # Since the last two cases don't have arrows we do it separately here
-            self.plotrep["arrow"] = new_edge_arrow
-            
-        # If other edge doesn't exist and NOT curved, then it must be a single direction arrow
-        elif other_edge is None:
-            new_edge = directed_edge_arrow(self.source.x, self.source.y,
-                            self.destination.x, self.destination.y,
-                            self.source.radius, self.owner.arrowsize, self.ax
-                            , self.colour)    
-        
-        # If the other edge exists and we're not curved, it's a bidirectional line
-        else:           
-            # Create the straight line
-            new_edge = self.ax.plot([self.source.x,self.destination.x], [self.source.y,self.destination.y], 
-                                        linewidth = 1, 
-                                        color=self.colour, 
-                                        zorder=0, 
-                                        clip_on=False)[0]
-        
-        # Now link this new edge with the visual plot representation of the edge
-        self.plotrep["visual"] = new_edge
-            
-        # If bidirectional (and not a self-loop) don't forget to update the other edge as well
-        if not self.curved and other_edge is not None and self.source != self.destination:
-            other_edge.plotrep["visual"] = new_edge
-            other_edge.colour = newcolour
-            
-    # Remove the edge from the plot
-    def plot_remove(self):
-        
-        # For everything in the representation, delete ite
-        for plotprop in list(self.plotrep.values()):
-            
-            # Because it's very hard to check if it's already there without creating another reference
-            # We will have to just manually try and do nothing if it's already been deleted
-            try:
-                plotprop.remove()
-            except ValueError:
-                pass
-        
-        # Clear the plot representation, deleting all references to these axes objects
-        # and making them eligible for garbage collection
-        self.plotrep = {}
         
 
 
