@@ -36,6 +36,7 @@ class Vertex():
         
         # We will store ALL the edges here
         edges = {}
+        
         # Just add both outgoing and incoming and return
         edges.update(self.outgoing_edges)  
         if both: edges.update(self.incoming_edges)  

@@ -4,7 +4,9 @@ from graph import Graph
 from graph_building_methods import create_graph
 from helper_functions import paragraphise
 from algorithms.bipartiteness import test_for_bipartiteness
-import os
+from algorithms.dfs import dfs
+from algorithm_video_maker import make_video
+import os, shutil
 
 
 # This class will be a wrapper around the Graph class and will be used for building graph algorithm visualisations
@@ -18,10 +20,16 @@ import os
 # G.add_edge("A","B") becomes GA.add_edge(G,"A","B") 
 # it will always follow this format for any graph function - if it previously had n arguments it will now have n+1 arguments
 # 
-# when you want to run any graph defined algorithm from the algorithms folder, just run algorithm_name(GA)
+# when you want to run any graph defined algorithm from the algorithms folder, call the self.run_algorithm(alg,graph) method
 class Graph_algorithm():
     
-    def __init__(self, frame_folder : str = "frames"):
+    # The frame folder states where all the frames/videos should go
+    def __init__(self, capture : bool = True, frame_folder : str = "frames"):
+            
+        # These folders should never be used as folders to store frames
+        illegal_folders = set([".","","algorithms"])
+        
+        if frame_folder in illegal_folders: raise Exception(f"Illegal folder name {frame_folder}")
             
         # Each graph algorithm will store a number of graphs, referenced by their name
         # Of course it has to contain at least one graph otherwise this class is useless
@@ -37,21 +45,22 @@ class Graph_algorithm():
         self.frame_folder = frame_folder
         
         # Whether or not we will save images and create a video
-        self.capturing : bool = True
+        self.capturing : bool = capture
         
         # These are all the methods which will cause a new image to be created - any others will not
         self.saveable_methods : set[str] = set(["set_vertex_colour","add_edge","add_vertex","remove_edge","remove_vertex",
                                                "assign_vertex_colours","assign_edge_colours"])
         
         # Where the text containing the graph information stored will be placed relative to the axes
-        self.text_pos = (0,1.025)
+        self.text_pos = (0,1.05)
         
         # Stores axes text objects that contain information about the state of the graph on the photos
         self.recorded_info = []
         
         # We need to make sure the testing folder actually exists first
-        if frame_folder != "": 
+        if frame_folder != "" and self.capturing: 
             
+            # Now make the directory again
             os.makedirs(frame_folder, exist_ok=True)
         
         
@@ -111,8 +120,8 @@ class Graph_algorithm():
         this_graphs_name : str = self.current_graph.name
         graph_frame_count : int = self.frame_counter[this_graphs_name]
         
-        # Save the figure with a filename based on the frame counter and the specific graph it's based on
-        filename = f"{this_graphs_name}_f{graph_frame_count}.png"
+        # Save the figure with a filename based on the frame counter
+        filename = f"f_{graph_frame_count}.png"
         
         if self.capturing:
             
@@ -129,6 +138,10 @@ class Graph_algorithm():
     
     # Get the current graph being examined by the algorithm
     def get_current_graph(self) -> Graph:
+        
+        # If there is no current graph (empty) then we have to raise an exception
+        if self.current_graph is None: raise Exception("empty graph algorithm object - add a graph using add_graph")
+        
         self.switch_to_graph(self.current_graph)
         return self.current_graph
         
@@ -174,42 +187,75 @@ class Graph_algorithm():
         
         self.recorded_info.append(info)
         
-  
+    # Given an algorithm A and graph G, compute A(G).
+    def run_algorithm(self, algorithm, graph : Graph = None, capture : bool = True):
+        
+        # Store the original capturing in a variable - we'll override the 
+        # object's capturing preference for now but set it back after we finish
+        remember = self.capturing
+        self.capturing = capture
+        
+        # If no graph is specified, run on the current graph
+        if graph is None: graph = self.get_current_graph()
+        
+        # Switch to the graph that you want to use for the algorithm
+        self.switch_to_graph(graph)
+        
+        # The files will be located here
+        filepath = self.frame_folder + "/" + graph.name
+        
+        # If we are capturing, delete the existing files to avoid issues with the video
+        if capture: shutil.rmtree(filepath, ignore_errors=True)
+        
+        # Call the algorithm and run it, obtaining some result
+        algorithm_result = algorithm(self)
+
+        if capture: make_video(graph.name + "_" + algorithm.__name__ + ".mp4", filepath)
+        
+        # Don't forget to set the capturing flag back to the original        
+        self.capturing = remember
+        
+        return algorithm_result
+        
+        
     
 s = ( 
 '''
-    A       D
-                G
-    B               I
+
+    A       D              X    Y
+                G   
+    B               I         Z                           
                 H
     C       F
+    
+    P       Q               K
+    
+R       V        U
+                            J
+    S       T
     
 
 ''' )
 
 
 
-edges = "(B,A),(B,C),(C,F),(A,D),(D,G),(F,H),(H,F) , (G,D), (G,I),(H,I),(B,I), (B,D),(D,B) , (B,F), (F,B), {H,F}"
+edges = '''(B,A),(B,C),(C,F),(A,D),(D,G),(F,H),(H,F) , (G,D), (G,I),(H,I),(B,I), (B,D),(D,B) , (B,F), (F,B), {H,F},
+            (P,Q),(V,Q),(Q,V),(U,V),(U,T),(V,T),(S,T),(S,R),(R,P),(K,J),(X,Y),(Z,Y)'''
 
 # Example weights
 weights = []
 
 # Build the graph according to the vertex schematic, edges and weights
 G = create_graph(s, edges, weights, vertexcolour="lime")
-H = create_graph(s, edges, weights, vertexcolour="brown", name="H")
+H = G.clone("H")
 
 H.remove_edge("C","F")
 H.remove_edge("A","D")
 
-
 # Instantiate the graph algorithm on the graph
-GA = Graph_algorithm( "frame_folder")
+GA = Graph_algorithm()
 
-GA.add_graph(G)
-GA.add_graph(H)
+print( GA.run_algorithm(dfs,G) )
 
-print(test_for_bipartiteness(GA))
 
-GA.switch_to_graph(H)
 
-print(test_for_bipartiteness(GA))

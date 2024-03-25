@@ -8,7 +8,7 @@ from def_vertex import Vertex
 class Graph():
     def __init__(self, name, ax, fig = plt.gcf(), arrowsize : float =0.01, res : int =100, vertexcolour : str ="red",edgecolour : str="black",
                  vertex_textcolour : str = "black", edge_textcolour : str = "black", curved_edge_stretchiness : float = 1.4,
-                 aspect_ratio : float = None, linestyle : str = "dotted", legendloc : tuple = (0.5, -0.025), legendsize : float = 20):
+                 aspect_ratio : float = None, linestyle : str = "solid", legendloc : tuple = (0.5, -0.025), legendsize : float = 20):
         
         self.name = name
         
@@ -80,6 +80,56 @@ class Graph():
         # Make the plot go outside of [0,1] so we can't see it in the graph but we can still reference it
         self.legend_ref = ax.scatter([10,10],[20,20], marker=f"${self.name}$", color=self.vertex_textcolour)
     
+    
+    # Create a perfect deep clone of the graph
+    def clone(self, graph_name : str = None):
+        
+        # Make sure that a name has been properly defined so we don't confuse the graphs
+        if graph_name is None: graph_name = "copy of " + self.name
+        
+        # Create new figure and axes for the graph to have, with the same figure size
+        fig2, ax2 = plt.subplots(figsize=self.fig.get_size_inches())
+        
+        # The plot will always be a square normalised on (0,1) 
+        ax2.set_xlim([0,1])
+        ax2.set_ylim([0,1])
+        
+        # Remove the axes
+        ax2.axis("off")
+
+        # Initialise the new graph with the same attributes as the old one (except the name, fig and axes ofc)     
+        G : Graph = Graph(graph_name, ax2, fig2, self.arrowsize, self.res, 
+                          self.vertexcolour, self.edgecolour,
+                          self.vertex_textcolour, self.edge_textcolour,
+                          self.curved_edge_stretchiness,
+                          self.aspect_ratio,
+                          self.linestyle,
+                          self.legendloc,
+                          self.legendsize)
+        
+        
+        # First we copy the vertices, since we can't add edges/highlights without the vertices
+        for vertex in list(self.V.values()):
+            
+            # Create a clone vertex with identical attributes to this one and add it to the graph
+            G.add_vertex(vertex.name, vertex.x, vertex.y, vertex.radius, vertex.colour, vertex.textcolour)
+        
+        # Now add the edges between the vertices, since we've already got the vertices now
+        for edge in list(self.E.values()):
+            
+            # If self loop, not bidrectional
+            is_self_loop = edge.source == edge.destination
+
+            # Very important to check if it's bidirectional otherwise we could get 2 directed arrows instead of a line
+            is_bidirectional : bool = (not edge.curved and 
+                                       self.get_edge(edge.destination.name, edge.source.name) is not None and
+                                       not is_self_loop)
+            
+            # Now we can add the edge to the graph as we needed
+            G.add_edge(edge.source.name, edge.destination.name, is_bidirectional, edge.weight, edge.colour )
+            
+        # Now that the graph copy has been fully constructed, we can return it to the user
+        return G
     
     # Add an annotation to the axes
     def annotate(self, text : str, clear_previous : bool = True):

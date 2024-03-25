@@ -25,11 +25,15 @@ def test_for_bipartiteness(GA, colours : list[str] = ["lime","red","grey"],
     def algorithm_text() -> str:
         
         # If they are empty they just give set() which looks bad
-        partition1 : str = str(partitions[c1]) if len(partitions[c1]) != 0 else "{}"
-        partition2 : str = str(partitions[c2]) if len(partitions[c2]) != 0 else "{}"
+        # Also remove the quotation marks since that's not really part of formal graph theory
+        partition1 : str = str(partitions[c1]).replace("'","") if len(partitions[c1]) != 0 else "{}"
+        partition2 : str = str(partitions[c2]).replace("'","") if len(partitions[c2]) != 0 else "{}"
+        
+        # Get rid of quotation marks and the square brackets, it needs to look like in formal graph theory
+        unassigned : str = str(partitions[c_unassigned]).replace("'","").replace("[","{").replace("]","}")
         
         # This is what we will show to the user to tell them the state of the partition
-        text = f"Partition 1 ({c1}): {partition1}\nPartition 2 ({c2}): {partition2}\nUnassigned: {str(partitions[c_unassigned])}"
+        text = f"Partition 1 ({c1}): {partition1}\nPartition 2 ({c2}): {partition2}\nUnassigned: {unassigned}"
         
         return text
         
@@ -37,24 +41,26 @@ def test_for_bipartiteness(GA, colours : list[str] = ["lime","red","grey"],
     # Subprocedure to assign a vertex to a partition (based on colour)
     def assign_to_partition(vertex_name, colour) -> None:
         
-        # Add to the corresponding colour partition
-        partitions[colour].add(vertex_name)
-        
-        # Colour it on the graph
-        GA.assign_vertex_colours(G,{ vertex_name : colour })
-        
         # Get rid of it in unassigned
         partitions[c_unassigned].remove(vertex_name)
         
-    # We will run a recursive DFS on the graph for bipartiteness checking
-    # DFS is easier to implement and more intuitive than BFS so we use this
-    def DFS_bipartite(current_vertex, current_colour) -> bool:
-            
+        # Add to the corresponding colour partition
+        partitions[colour].add(vertex_name)
+        
+        # Clear the text from the previous slide
         GA.clear_text()
         
         # Explain the state of the algorithm at each step
         GA.add_text(algorithm_text())
-            
+        
+        # Colour it on the graph
+        GA.assign_vertex_colours(G,{ vertex_name : colour })
+        
+        
+    # We will run a recursive DFS on the graph for bipartiteness checking
+    # DFS is easier to implement and more intuitive than BFS so we use this
+    def DFS_bipartite(current_vertex, current_colour) -> bool:
+        
         # Assign it to the partition of the colour we've selected
         assign_to_partition(current_vertex, current_colour)
         
@@ -98,6 +104,9 @@ def test_for_bipartiteness(GA, colours : list[str] = ["lime","red","grey"],
                 
                 # Highlight the edge so we can see
                 GA.highlight_edge(G,(current_vertex, vertex.name), highlight_colour )
+                
+                # Highlight the next vertex as well so the audience sees what's happening
+                GA.highlight_vertex(G, vertex.name, highlight_colour)
                 
                 # Explain why we colour the vertex this colour.
                 GA.get_vertex(G,vertex.name).annotate(f"Colour {vertex.name} {opposite_colour} because of the {current_colour} vertex {current_vertex}.")
