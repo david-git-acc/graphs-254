@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from drawing_functions import point_orientation
-from defedge import Edge
+from helper_functions import point_orientation, paragraphise
+from def_edge import Edge
 
 # Defining a vertex
 class Vertex():
@@ -29,6 +29,24 @@ class Vertex():
             # If the user inputs a colour choice then respect that choice
             self.colour = colour
    
+    # Return the list of all vertices (just the edges) directly adjacent to the vertex, whether incoming or outgoing
+    # vertices_only determines whether you want JUST the vertex objects themselves or the dictionary of vertexname-vertex pairs
+    # if both is set to true, will consider both incoming and outgoing edges
+    def connected_vertices(self, vertices_only : bool = True, both : bool = False) -> list:
+        
+        # We will store ALL the edges here
+        edges = {}
+        # Just add both outgoing and incoming and return
+        edges.update(self.outgoing_edges)  
+        if both: edges.update(self.incoming_edges)  
+        
+        # If we only want vertices then just get the values
+        if vertices_only: edges = list(edges.values())
+
+        # Otherwise we can just give the full dict as required
+        return edges
+            
+    
     
     # Change the text colour of a vertex
     def set_textcolour(self, newcolour : str = None) -> None:
@@ -46,15 +64,16 @@ class Vertex():
         
         if clear_previous: self.owner.clear_annotations()
         
-        # By using the legend
-        self.plotrep["visual"].set_label(r"$\mathbf{Vertex\ " + self.name + "}$: " + text)
+        # The actual text string that we will use, but we need to convert it into paragraphs
+        textstring = r"$\mathbf{Vertex\ " + self.name + "}$: " + text
+        
+        # We use the legend to show the text on the figure
+        self.plotrep["visual"].set_label(paragraphise(textstring, self.owner.characters_per_line))
         
         # Add it to the list of annotations so we can keep track of it
         self.owner.annotations.append(self.plotrep["visual"])
 
-        # We want to make the legend as close to the actual vertex being annotated as possible
-        if clear_previous: self.ax.legend(loc=self.quadrant())
-        else: self.ax.legend()
+        self.ax.legend(loc="center", bbox_to_anchor=self.owner.legendloc, fancybox=True, shadow=True, fontsize=self.owner.legendsize)
         
           
     # Determine the quadrant (upper left, lower right, etc...) that the vertex belongs to
@@ -119,20 +138,19 @@ class Vertex():
     # weight is the float weight assigned to the edge
     # the midpoint can be optionally input 
     def add_edge(self, dest, visual_edge, weight : float = None, midpoint : list[float,float] = None, 
-                 edgecolour : str = None, textcolour : str = None):
+                 edgecolour : str = None, textcolour : str = None, linestyle : str = None):
         
-        # If no edgecolour selected, let it be the default
+        # If no edgecolour selected/textcolour/linestyle, let it be the default
         if edgecolour is None: edgecolour = self.owner.edgecolour
-        
-        # Same for above, there must always be a text colour
         if textcolour is None: textcolour = self.owner.edge_textcolour
+        if linestyle is None: linestyle = self.owner.linestyle
         
         # Make sure this edge actually exists
         if not isinstance(dest, Vertex):
             raise Exception(f"Destination vertex for outgoing edge from {self.name} does not exist")
         
         # Instantiate the edge with all the information
-        edge = Edge(self, dest, weight, midpoint=midpoint, colour=edgecolour, textcolour=textcolour)
+        edge = Edge(self, dest, weight, midpoint=midpoint, colour=edgecolour, textcolour=textcolour,linestyle=linestyle)
         
         # The edge will now have its visual representation linked to it
         edge.plotrep.update({ "visual" : visual_edge })

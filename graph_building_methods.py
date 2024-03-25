@@ -159,9 +159,9 @@ def arrify_edges(edges : str , weights : list[float]) -> tuple:
 # Add gridlines to the plot to understand what's going on
 def gridlines(X : np.ndarray,Y : np.ndarray,x : int,y : int) -> None:
     for i in np.linspace(X.min(),X.max(), x+1):
-        plt.axvline(i, Y.min(),Y.max(), color="white", zorder=0)
+        plt.axvline(i, Y.min(),Y.max(), color="black", zorder=0)
     for j in np.linspace(Y.min(),Y.max(), y+1):
-        plt.axhline(j, X.min(), X.max(), color="white", zorder=0)
+        plt.axhline(j, X.min(), X.max(), color="black", zorder=0)
 
 # Create the grid that the vertices will be based on
 # x = number of columns, y = number of rows
@@ -173,12 +173,12 @@ def create_grid(x : int,y : int, heightratio : float, display : bool =False) -> 
 
     if y2 >= x:
         X,Y = arrs
-        if display:
-            plt.fill_between(X, [0], [1], color="blue", zorder=0)
+        # if display:
+        #     plt.fill_between(X, [0], [1], color="blue", zorder=0)
     else:
         Y,X = arrs
-        if display:
-            plt.fill_betweenx(Y, [0],[1], color="blue",zorder=0)
+        # if display:
+        #     plt.fill_betweenx(Y, [0],[1], color="blue",zorder=0)
 
     # Determine the width and height of the overall graph figure
     width = X.max()-X.min()
@@ -244,7 +244,8 @@ def add_edges(G : Graph, bi_edges : list[tuple],di_edges : list[tuple]):
 # Compress determines if we want to compress the schematic first
 def create_graph(schematic : str, edges : str, weights : list[float] = [], heightratio : float =2.4,  display : bool =False,
                  vertexcolour : str = "red", edgecolour : str = "black", compress : bool = True,
-                 vertex_textcolour : str = "black", edge_textcolour : str = "black"):
+                 vertex_textcolour : str = "black", edge_textcolour : str = "black" , linestyle : str = "solid",
+                 name : str = "G"):
 
 
     # Create the plot
@@ -270,11 +271,12 @@ def create_graph(schematic : str, edges : str, weights : list[float] = [], heigh
     _,_,X,Y = create_grid(ncols,nrows, heightratio, display=display)
     
     arrowsize = (2/3) * ( X.max() - X.min() ) / (2 * ncols)
+    legendsize = 15
     
     # Create the Graph object
-    G = Graph("G", ax, vertexcolour=vertexcolour, edgecolour=edgecolour, arrowsize=arrowsize, 
+    G = Graph(name, ax, fig=fig, vertexcolour=vertexcolour, edgecolour=edgecolour, arrowsize=arrowsize, 
               vertex_textcolour= vertex_textcolour,edge_textcolour = edge_textcolour,
-              aspect_ratio = ncols/ (heightratio*nrows))
+              aspect_ratio = ncols/ (heightratio*nrows), linestyle=linestyle, legendsize=legendsize)
     
     # Use the information we've gathered to add the vertices to the graph
     add_vertices(G, vertexinfo, nrows,ncols,X,Y)
@@ -282,8 +284,6 @@ def create_graph(schematic : str, edges : str, weights : list[float] = [], heigh
     # Plot the edges onto the graph using all our info
     add_edges(G, bi_edges, di_edges)
 
-    plt.savefig("test_folder/test2.png")
-    
     # Return the graph so we can use it
     return G
 
@@ -302,38 +302,56 @@ E      B                  I
 ''' )
 
 
-
 edges = '''(B,A),(B,C),(C,F),(A,D),(D,G),(F,H),(H,F) , (G,D), (G,I),(H,I),(B,I), (B,D),(D,B) , (B,F), (F,B), {H,F}, {D,F}, {G,H},
 (K,C),(C,K),(J,A),(A,J),(B,J),(J,B),(B,K),(K,B), (E,J),(E,K), (E,B)'''
 
 weights = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
 
-G = create_graph(s, edges, weights, vertexcolour="lime" ,edgecolour="black", vertex_textcolour="red", edge_textcolour="brown")
+G = create_graph(s, edges, weights, vertexcolour="lime" ,edgecolour="black",
+                 linestyle = "solid")
+
+# D = G.get_vertex("D")
+
+# D.annotate("hello I am a vertex")
+# G.get_vertex("A").annotate("No, I am the vertex", clear_previous= False)
+
+# G.get_edge("B","C").annotate("Nope!")
+
+# G.get_edge("A","D").highlight("red")
+
+# G.highlight_edge(("D","A"),"red")
+
+# G.get_edge("F","H").set_textcolour("green")
+# G.get_vertex("F").set_textcolour("lime")
+
+# G.add_edge("D","C", weight=31)
+# G.add_edge("C","D" , weight=298)
+# G.add_edge("C","D",both=True, weight=250)
+
+# G.get_edge("C","D").highlight("blue")
+# G.get_edge("D","C").highlight("violet")
+# G.get_edge("D","G").annotate("This function essentially attempts to format the text into paragraphs with a specified line length. However, it seems to have a limitation in handling words longer than the specified characters per line limit. Additionally, it might not accurately handle punctuation marks and spacing. Further refinement could involve considering these edge cases and improving the overall robustness of the function.")
+
+# G.set_vertex_textcolour("black")
+# G.set_edge_textcolour("blue")
+
+# G.get_edge("B","A").set_textcolour("purple")
+
+# G.get_vertex("D").set_colour("brown")
+
+# G.get_edge("F","H").set_linestyle("dotted")
+
+# G.add_edge("A","A")
+
+plt.savefig("test_folder/" + G.name + ".png")
 
 
-D = G.get_vertex("D")
 
-D.annotate("hello I am a vertex")
-G.get_vertex("A").annotate("No, I am the vertex", clear_previous= False)
+# newG.save("hello2.png")
 
-G.get_edge("B","C").annotate("Nope!")
 
-G.get_edge("A","D").highlight("red")
 
-G.highlight_edge(("D","A"),"red")
 
-G.get_edge("F","H").set_textcolour("green")
-G.get_vertex("F").set_textcolour("lime")
-
-G.add_edge("D","C", weight=31)
-G.add_edge("C","D" , weight=298)
-G.add_edge("C","D",both=True, weight=250)
-
-G.get_edge("C","D").highlight("blue")
-G.get_edge("D","C").highlight("violet")
-G.get_edge("D","C").annotate("hahaha")
-
-plt.savefig("test_folder/test3.png", )
 
 
 

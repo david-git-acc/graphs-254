@@ -1,4 +1,4 @@
-from drawing_functions import point_orientation, directed_edge_arrow, curved_directed_edge_arrow, selfloop_arrow
+from helper_functions import point_orientation, directed_edge_arrow, curved_directed_edge_arrow, selfloop_arrow, paragraphise
 import numpy as np
 
 
@@ -8,7 +8,10 @@ import numpy as np
 # The curved attribute determines whether this edge is a curved directed edge or not
 class Edge():
     def __init__(self, source, destination, weight : float = None, midpoint : list[float,float] = None,
-                 curved : bool = False, colour : str = None, textcolour : str = "black"):
+                 curved : bool = False, colour : str = None, textcolour : str = "black", linestyle : str = None ):
+        
+        # Make sure we have some linestyle to use
+        if linestyle is None: linestyle = self.owner.linestyle
         
         # The source and destination vertices must belong to the same graph
         if source.owner is not destination.owner:
@@ -23,6 +26,7 @@ class Edge():
         self.colour = colour
         self.textcolour = textcolour
         self.curved = curved
+        self.linestyle = linestyle
         
         # Assigning midpoint - if not specified we just take the midpoint of the source and destination verticess
         if midpoint is not None:
@@ -36,6 +40,14 @@ class Edge():
         # If no colour is specified then let it be the default
         if colour is None: colour = self.owner.edgecolour
         
+    # Set the type of visual line of an edge
+    def set_linestyle(self, linestyle : str = None) -> None:
+          
+        # Just use the matplotlib method
+        self.linestyle = linestyle
+        
+        self.plotrep["visual"].set_linestyle(linestyle)
+        
     # Change the colour of the weight
     def set_textcolour(self, newcolour : str = None):
         
@@ -43,22 +55,26 @@ class Edge():
         if newcolour is None: newcolour = self.owner.textcolour
         
         self.textcolour = newcolour
-        self.plotrep["text"].set_color(self.textcolour)
+        
+        # If the weight actually exists then set it otherwise no point
+        if self.plotrep.get("text") is not None:
+            self.plotrep["text"].set_color(self.textcolour)
         
     # Add an annotation to the axes talking about this edge
     def annotate(self, text : str, clear_previous : bool = True):
         
         if clear_previous: self.owner.clear_annotations()
         
-        # By using the legend
-        self.plotrep["visual"].set_label(r"$\mathbf{Edge\ " + self.source.name + self.destination.name + "}$: " + text)
+        # We need to be specific about what edge is being used to be clear
+        textstring = r"$\mathbf{Edge\ " + self.source.name + self.destination.name + "}$: " + text
+        
+        # We will use the legend to show the text on the figure
+        self.plotrep["visual"].set_label(paragraphise(textstring, self.owner.characters_per_line))
         
         # Add it to the list of annotations so we can keep track of it
         self.owner.annotations.append(self.plotrep["visual"])
 
-        # We want to make the legend as close to the actual edge being annotated as possible
-        if clear_previous: self.ax.legend(loc=self.quadrant())
-        else: self.ax.legend()
+        self.ax.legend(loc="center", bbox_to_anchor=self.owner.legendloc, fancybox=True, shadow=True, fontsize=self.owner.legendsize)
         
     # Determine the quadrant (upper left, lower right, etc...) that the edge belongs to, using its midpoint
     def quadrant(self) -> str: return point_orientation(*self.midpoint, self.owner.aspect_ratio)    
@@ -135,7 +151,7 @@ class Edge():
             
             # Generate the new self loop edge 
             new_edge_arrow, new_edge, _, _ = selfloop_arrow(self.source, 0.5, self.ax, 
-                                                            self.colour)
+                                                            self.colour, linestyle = self.linestyle)
             
             # Since the last two cases don't have arrows we do it separately here
             self.plotrep["selfloop_arrow"] = new_edge_arrow
@@ -152,7 +168,7 @@ class Edge():
                                                 self.destination,
                                                 self.source.radius * self.owner.curved_edge_stretchiness,
                                                 self.ax,
-                                                self.colour)
+                                                self.colour, linestyle = self.linestyle)
             
             # Since the last two cases don't have arrows we do it separately here
             self.plotrep["arrow"] = new_edge_arrow
@@ -162,7 +178,7 @@ class Edge():
             new_edge = directed_edge_arrow(self.source.x, self.source.y,
                             self.destination.x, self.destination.y,
                             self.source.radius, self.owner.arrowsize, self.ax
-                            , self.colour)    
+                            , self.colour, linestyle = self.linestyle)    
         
         # If the other edge exists and we're not curved, it's a bidirectional line
         else:           
@@ -171,7 +187,7 @@ class Edge():
                                         linewidth = 1, 
                                         color=self.colour, 
                                         zorder=0, 
-                                        clip_on=False)[0]
+                                        clip_on=False, linestyle=self.linestyle)[0]
         
         # Now link this new edge with the visual plot representation of the edge
         self.plotrep["visual"] = new_edge

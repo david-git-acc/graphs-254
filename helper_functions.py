@@ -22,7 +22,7 @@ def rotate(x_A : float,y_A : float,x_B : float,y_B : float,theta : float) -> tup
             
             
 # Made a function to create a directed edge arrow as it's quite tedious to do
-def directed_edge_arrow(x_A,y_A, x_B, y_B, radius, arrowsize, ax, edgecolour : str = "black"):
+def directed_edge_arrow(x_A,y_A, x_B, y_B, radius, arrowsize, ax, edgecolour : str = "black" , linestyle : str = "dotted"):
     
     # Get the location differences so the arrows are placed correctly
     # This is calculated mathematically (on paper) and then input into this program
@@ -39,6 +39,7 @@ def directed_edge_arrow(x_A,y_A, x_B, y_B, radius, arrowsize, ax, edgecolour : s
                 head_length = arrowsize, 
                 head_width = arrowsize, 
                 linewidth=0.25,
+                linestyle = linestyle,
                 zorder=0)
     
     return visual_edge
@@ -56,7 +57,7 @@ def directed_edge_arrow(x_A,y_A, x_B, y_B, radius, arrowsize, ax, edgecolour : s
 # This is necessary because if we have a di-edge from A to B and another from B to A,they may have different properties
 # So we will need to be able to show both of them separately
 # The parameter d specifies how far the edges should stretch at the middle, where d = 0 makes them straight lines 
-def curved_directed_edge_arrow(sourcev, destv, d : float, ax, edgecolour : str = "black") -> tuple:
+def curved_directed_edge_arrow(sourcev, destv, d : float, ax, edgecolour : str = "black", linestyle : str = "solid") -> tuple:
 
     # We can create the curved edge by:
     # 1. Finding the point x_C which is on the same x-coordinate as x_A and a rotation of some theta degrees
@@ -141,6 +142,7 @@ def curved_directed_edge_arrow(sourcev, destv, d : float, ax, edgecolour : str =
                      head_length = arrowsize, 
                      head_width = arrowsize, 
                      linewidth=0.25,
+                     
                      zorder=0)
     
    
@@ -149,7 +151,8 @@ def curved_directed_edge_arrow(sourcev, destv, d : float, ax, edgecolour : str =
                            color=edgecolour, 
                            linewidth=1, 
                            zorder=0, 
-                           clip_on=False)[0]
+                           clip_on=False,
+                           linestyle=linestyle)[0]
     
     
     # Return the references to the curve edge, the arrow and the coordinates of the midpoints
@@ -174,7 +177,7 @@ def curved_directed_edge_arrow(sourcev, destv, d : float, ax, edgecolour : str =
 # We will cut a chord across the top of the vertex circle, and the points of intersection X1,X2 between the chord and
 # the circle will be used to create another circle, which will be used as the curved line of the self loop
 # We will then create an arrow for the self loop by calculating its position on the circle so it points directly to the vertex
-def selfloop_arrow(sourcev, frac_diam : float, ax, edgecolour : str = "black"):
+def selfloop_arrow(sourcev, frac_diam : float, ax, edgecolour : str = "black" , linestyle : str = "solid"):
     
     # The x and y coordinates of the vertex
     x,y = sourcev.x, sourcev.y
@@ -211,7 +214,7 @@ def selfloop_arrow(sourcev, frac_diam : float, ax, edgecolour : str = "black"):
     mapped_x2,mapped_y2 = rotate(chord_x,chord_y, x, selfloop_y, arrowsize/r)
     
     # This the slefloop, we use a white facecolor to make sure it's hollow to create the self loop appearance
-    circ = plt.Circle((x,selfloop_y), r, facecolor="white",edgecolor=edgecolour, zorder=0, clip_on=False)
+    circ = plt.Circle((x,selfloop_y), r, facecolor="white",edgecolor=edgecolour, zorder=0, clip_on=False, linestyle=linestyle)
 
     # The circle must be placed on the same axes as the vertex, obviously
     ax.add_patch(circ)
@@ -234,20 +237,59 @@ def selfloop_arrow(sourcev, frac_diam : float, ax, edgecolour : str = "black"):
 # Get the orientation (closest quadrant/corner) of a 2D point in the axes
 def point_orientation(x : float, y : float, aspect_ratio : float = 1):
     
+    # Initially we start with 4 possible points - lower left, upper left, lower right, upper right
+    # Depending on the aspect ratio we may be able to get centre coordinates as well
     xlocations = ["left", "right"]
     ylocations = ["lower" , "upper"]
     
+    # If aspect ratio > 1 then we have more width than height, so horizontal centering is available
     if aspect_ratio > 1:
         xlocations.insert(1, "center")
+        
     elif aspect_ratio < 1: 
+        
+        # Otherwise vice versa, only if it's a square do we not have the ability to centre
         ylocations.insert(1, "center")
 
-    xindex = round( x*len(xlocations)) - 1
-    yindex = round( y*len(ylocations)) - 1
-    
-    
-
-    
-
+    xindex = int( x*len(xlocations)) 
+    yindex = int( y*len(ylocations)) 
     
     return ylocations[yindex] + " " + xlocations[xindex]
+
+# Insert newlines in a stream of text to create a paragraph
+# Characters per line determines how long we want each line to be before we move onto the next one
+# Words will not be interrupted, so if we see a word that is cut in half by the limit we just move the whole word down
+def paragraphise(text : str, characters_per_line : int):
+    
+    # Look at each word by spacing - that's generally the definition of a "word"
+    text_words = text.split(" ")
+    
+    # We will use this as a counter to know when to move
+    characters_elapsed = 0
+    
+    for wordindex, word in enumerate(text_words):
+            
+        wordlength = len(word)
+        
+        # We should never encounter a word longer than a full line but if we do, then we quit
+        if wordlength > characters_per_line:
+            print(f"Word {word} is too long!")
+            return 
+        
+        # If there's already a newline then we can reset
+        if "\n" in word: characters_elapsed = 0
+        
+        # Check if we need to move to the next line - if adding this word would take us over the limit
+        elif characters_elapsed + wordlength > characters_per_line:
+            
+            # If so then add a newline to the previous word to uphold the limit
+            text_words[wordindex-1] += "\n"
+            
+            # Reset the counter of course, otherwise every next word would have a newline
+            characters_elapsed = 0
+        
+        # Increment the counter with the size of the word (+1 because of the implied space)
+        characters_elapsed += wordlength + 1
+    
+    # Don't forget to turn it back into string format
+    return " ".join(text_words)

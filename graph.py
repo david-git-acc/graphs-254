@@ -1,14 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from drawing_functions import directed_edge_arrow, curved_directed_edge_arrow, selfloop_arrow, point_orientation
-from defedge import Edge
-from defvertex import Vertex
+from helper_functions import directed_edge_arrow, curved_directed_edge_arrow, selfloop_arrow, point_orientation, paragraphise
+from def_edge import Edge
+from def_vertex import Vertex
 
 # Defining our graph theory objects
 class Graph():
-    def __init__(self, name, ax, arrowsize : float =0.01, res : int =100, vertexcolour : str ="red",edgecolour : str="black",
+    def __init__(self, name, ax, fig = plt.gcf(), arrowsize : float =0.01, res : int =100, vertexcolour : str ="red",edgecolour : str="black",
                  vertex_textcolour : str = "black", edge_textcolour : str = "black", curved_edge_stretchiness : float = 1.4,
-                 aspect_ratio : float = None):
+                 aspect_ratio : float = None, linestyle : str = "dotted", legendloc : tuple = (0.5, -0.025), legendsize : float = 20):
         
         self.name = name
         
@@ -18,7 +18,7 @@ class Graph():
         
         # E maps a pair (source name, destination name) to the actual object edge
         # E.g for vertices called U and V, then we have an entry { ("U", "V") : (Object Edge() at 0x2392230230)} 
-        self.E : dict[tuple[str,str], Vertex] = {}
+        self.E : dict[tuple[str,str], Edge] = {}
         
         # Store all highlighted vertices and edges
         # The user will be able to highlight vertices and edges in the colour they want
@@ -37,8 +37,9 @@ class Graph():
         # Determines if highlighting will be done OVER the vertices (True) and edges or underneath (False)
         self.highlight_through = False
         
-        # Get a reference to the axis
+        # Get a reference to the axis and figure objects
         self.ax = ax
+        self.fig = fig
         
         # MISCELLANEOUS ATTRIBUTES - used in graph customisation
         
@@ -53,6 +54,8 @@ class Graph():
         # Set the arrowsize - the size of the arrows for directed edges
         self.arrowsize = arrowsize
         
+        self.linestyle = linestyle
+        
         # This constant determines how much curved edges will be stretched out
         self.curved_edge_stretchiness = curved_edge_stretchiness
         
@@ -62,9 +65,57 @@ class Graph():
         # We need to keep track of all annotations in the graph
         self.annotations : list = []
         
+        # The coordinates and size of the legend, which is used for annotations
+        self.legendloc = legendloc
+        self.legendsize = legendsize
+        
         # Get the aspect ratio of the graph
         self.aspect_ratio = aspect_ratio
+        
+        # How many characters on a single line of annotation are allowed
+        # 96 is the number of pixels in an inch, [0] gets the WIDTH of the figure
+        self.characters_per_line = int( fig.get_size_inches()[0] * 10 )
+    
+        # This isn't actually a plot, it's just so that I can add annotations for the graph
+        # Make the plot go outside of [0,1] so we can't see it in the graph but we can still reference it
+        self.legend_ref = ax.scatter([10,10],[20,20], marker=f"${self.name}$", color=self.vertex_textcolour)
+    
+    
+    # Add an annotation to the axes
+    def annotate(self, text : str, clear_previous : bool = True):
+        
+        if clear_previous: self.clear_annotations()
+        
+        # We use the legend to show the text on the figure
+        self.legend_ref.set_label(paragraphise(text, self.characters_per_line))
+        
+        # Add it to the list of annotations so we can keep track of it
+        self.annotations.append(self.legend_ref)
 
+        self.ax.legend(loc="center", bbox_to_anchor=self.legendloc, fancybox=True, shadow=True, fontsize=self.legendsize)
+        
+        
+    # Get the edges of the graph - if objects = True then give only the objects, otherwise give only the keys
+    def edges(self, objects : bool = False) -> list[Edge]: 
+        
+        if objects: return list(self.E.values())
+        else: return list(self.E.keys())
+    
+    # Same as above but for vertices
+    def vertices(self, objects : bool = False) -> list[Vertex]: 
+        
+        if objects: return list(self.V.values())
+        else: return list(self.V.keys())
+    
+    # Save the graph as an image
+    def save(self, name : str = None) -> None: 
+        
+        # If they don't specify, just save it as the name of the graph
+        if name is None: name = self.name + ".png"
+        
+        
+        plt.savefig(name)
+        
     # Set the text colour of every vertex in the graph to a given colour
     def set_vertex_textcolour(self, colour : str) -> None:
         
@@ -422,12 +473,14 @@ class Graph():
     # Add an edge to the graph. both is used for bi-directional edges
     # Also consider the weight of the edge so we can add that as well
     def add_edge(self, source_name : str, destination_name : str, both : bool = False, weight : float = None,
-                 edgecolour : str = None) -> None:
+                 edgecolour : str = None, linestyle : str = None) -> None:
         
-
         
         # Make the user choose an edgecolour or we use the default
         if edgecolour is None: edgecolour = self.edgecolour
+        
+        # Same as above but for linestyle
+        if linestyle is None: linestyle = self.linestyle
         
         # Get the source and destination vertices
         sourcev : Vertex = self.get_vertex(source_name)
@@ -454,10 +507,11 @@ class Graph():
         if sourcev == destv:
 
             # Create the selflooping arrow - we need the arrowhead
-            selfloop_arrowhead, visual_edge, midpoint_x, midpoint_y = selfloop_arrow(sourcev,0.5, self.ax, edgecolour)
+            selfloop_arrowhead, visual_edge, midpoint_x, midpoint_y = selfloop_arrow(sourcev,0.5, self.ax, edgecolour, linestyle=linestyle)
             
             # Add the edge itself
-            sourcev.add_edge(sourcev, visual_edge, midpoint = [midpoint_x, midpoint_y], edgecolour=edgecolour, weight=weight)
+            sourcev.add_edge(sourcev, visual_edge, midpoint = [midpoint_x, midpoint_y], edgecolour=edgecolour, weight=weight,
+                             linestyle=linestyle)
             
             # Grab the edge so we can add the arrowhead to it as well
             edge_just_added = self.get_edge(sourcev.name, sourcev.name)
@@ -489,7 +543,8 @@ class Graph():
                                         linewidth = 1, 
                                         color=edgecolour, 
                                         zorder=0, 
-                                        clip_on=False)[0]
+                                        clip_on=False,
+                                        linestyle=linestyle)[0]
             
             # We will also update the midpoints of the edges to be linear again
             midpoint = [(sourcev.x + destv.x)/2 , (sourcev.y + destv.y) / 2]
@@ -525,12 +580,14 @@ class Graph():
             # Remove the existing visual edges so we can replace them
             edge_just_added.plot_remove()
             other_edge.plot_remove()
+            
                   
             # Create the curved line and get its midpoint so we can use this as the edge visualisation
             visual_arrow, visual_edge, midpoint_x, midpoint_y = curved_directed_edge_arrow(destv, sourcev, 
                                                                                            sourcev.radius * self.curved_edge_stretchiness, 
                                                                                            self.ax,
-                                                                                           edgecolour=other_edge.colour)
+                                                                                           edgecolour=other_edge.colour,
+                                                                                           linestyle=other_edge.linestyle)
             
             # Set the other edge's new midpoint
             other_edge.midpoint = [midpoint_x, midpoint_y]
@@ -547,6 +604,7 @@ class Graph():
             visual_arrow2, visual_edge2, mid2_x, mid2_y = curved_directed_edge_arrow(sourcev,destv,
                                                                                      destv.radius * self.curved_edge_stretchiness,
                                                                                      self.ax,
+                                                                                     linestyle=linestyle,
                                                                                      edgecolour=edgecolour)
             
             # Now update the midpoints, visual representation and edge weight of the edge we've just added and then we're done
@@ -559,10 +617,12 @@ class Graph():
 
             
     # Add a directed edge to the graph - may or may not have an edge weight attached
-    def add_directed_edge(self, source_name : str, destination_name : str , weight : float = None, edgecolour : str = None):
+    def add_directed_edge(self, source_name : str, destination_name : str , weight : float = None, edgecolour : str = None,
+                          linestyle : str = None):
             
-        # If no edgecolour is chosen let it be the default
+        # If no edgecolour is chosen let it be the default, same for linestyle
         if edgecolour is None: edgecolour = self.edgecolour    
+        if linestyle is None: linestyle = self.linestyle
         
         # Get the vertices to do the edge-adding
         sourcev : Vertex = self.V.get(source_name)
@@ -574,10 +634,11 @@ class Graph():
         # Create an arrow axes object for use
         visual_edge = directed_edge_arrow(sourcev.x, sourcev.y, destv.x, destv.y, 
                                                     sourcev.radius, self.arrowsize, self.ax, 
-                                                    edgecolour = edgecolour)
+                                                    edgecolour = edgecolour,
+                                                    linestyle=linestyle)
             
         # Then add the directed edge to the graph structure
-        sourcev.add_edge(destv, visual_edge, weight=weight, edgecolour = edgecolour)
+        sourcev.add_edge(destv, visual_edge, weight=weight, edgecolour = edgecolour, linestyle=linestyle)
 
 
     # Remove an edge from the graph; both states where it should be a bidirectional removal or just one
@@ -640,7 +701,8 @@ class Graph():
                                               source_vertex.x, source_vertex.y, 
                                               source_vertex.radius, self.arrowsize, 
                                               self.ax,
-                                              edgecolour = other_edge.colour)
+                                              edgecolour = other_edge.colour,
+                                              linestyle=other_edge.linestyle)
             
             # Now change its visual references to be the new visual edge
             other_edge.plotrep.update({"visual" : visual_edge })
