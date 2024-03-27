@@ -66,7 +66,8 @@ def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gol
     # Add the text to show the topological ordering
     GA.add_text(algorithm_text(topological_ordering, violating_edges, G.characters_per_line))
         
-    # Save at this point before we begin checking edges
+    # Save at this point before we begin checking edges - do it twice so we get more time to look at it
+    GA.save_state()
     GA.save_state()
 
     # Now for each edge we will check if it satisfies the definition
