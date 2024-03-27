@@ -67,6 +67,9 @@ def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_co
     # Fetch the current graph in use by the graph algorithm
     G = GA.get_current_graph()
     
+    # Get the original colours of the graph so we can reset them at the end
+    original_colours = G.get_vertex_colours()
+    
     # If no start vertex, select arbitrary vertex
     if start_vertex_name is None: start_vertex_name = G.vertices()[0]
     
@@ -108,6 +111,12 @@ def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_co
     GA.clear_text()
     GA.add_text(algorithm_text())
     GA.save_state()
+    
+    # Get rid of the highlighting, we don't need it anymore
+    GA.clear_highlighting(G)
+    
+    # Return the vertices back to their original colours
+    G.assign_vertex_colours(original_colours)
     
     # Give back the finish numbers once we're done
     return finish_numbers

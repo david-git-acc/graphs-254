@@ -1,3 +1,5 @@
+from graph_building_methods import create_graph
+
 # GA stands for graph algorithm - it will be the algorithm handler that contains the graph we're operating on
 
 # Determine if a graph is bipartite. If it is, then return the mappings - otherwise return False and the failed assignment
@@ -7,6 +9,9 @@ def test_for_bipartiteness(GA, colours : list[str] = ["lime","red","grey"],
     
     # Get the current graph being looked at by the algorithm
     G = GA.get_current_graph()
+    
+    # Get the original colours so we can set them back at the end
+    original_colours = G.get_vertex_colours()
     
     # Start by choosing our set 1, set 2 and unassigned colours
     c1, c2, c_unassigned = colours[0], colours[1], colours[2]
@@ -153,6 +158,118 @@ def test_for_bipartiteness(GA, colours : list[str] = ["lime","red","grey"],
     if is_bipartite: 
         GA.annotate(G,f"Therefore {G.name} is bipartite, 2-colourable and has no odd-length cycles.")
         GA.save_state()
+        
+    # Now we build the bipartite graph to show to the user
+    G2 = bipartite_form(G, partitions[c1],partitions[c2], colours[:2], name=G.name)
+    
+    # Switch perspective to the new graph
+    GA.switch_to_graph(G2)
+    
+    # Explain that this is the bipartite graph and save this image
+    GA.annotate(G2, f"This is the attempted bipartite construction of {G.name}.")
+    GA.save_state()
+    
+    # Remove any remaining highlighting and return the original colours back to their existing values
+    GA.clear_highlighting(G)
+    G.assign_vertex_colours(original_colours)
     
     # Then at the end we return the result (yes/no), and the partitions we tried to assign to the vertices
     return (is_bipartite, (partitions[c1], partitions[c2], partitions[c_unassigned]))
+
+# When you have to draw an edge between vertices in the same bipartite partition, make it curved
+def same_partition_edges(G, source_name, dest_name, colour):
+    
+    # The problem is that if we draw a standard directed edge it will cut through the bipartite vertices
+    # So if we have no choice but to make it curved so that it's clearly visible where the edge is going
+    
+    # First remove the existing edges
+    G.remove_edge(source_name, dest_name, both=True)
+    
+    # Now add the curved edges, we add a fake edge so that we can get the curve
+    G.add_edge(source_name, dest_name, edgecolour = colour)
+    G.add_edge(dest_name, source_name, edgecolour = "white")
+    
+    # Make sure the fake edge can't overlap with anything, it will always get lower priority
+    G.get_edge(dest_name, source_name).plotrep["visual"].set_zorder(-1)
+    G.get_edge(dest_name, source_name).plotrep["arrow"].set_zorder(-1)
+
+
+# Construct a visual representation of a bipartite graph 
+# It will have all the edges of the original graph that weren't mapped to uncoloured vertices
+# It will have all vertices that were coloured - belonged to one of the two partitions (L, R)
+# We will use the colours list to choose our colours
+def bipartite_form(G, L : set[str], R : set[str], colours : list[str] = ["lime","red"], name : str = None):
+    
+    # If no name is provided make it the same as G but with _bp so it's bipartite 
+    if name is None: name = G.name + "_bp"
+    
+    # Determine the size of the partition with the most vertices, hence the tallest
+    tallest = max(len(L),len(R))
+    
+    # This equalises their sizes with blank vertices to make implementation easier
+    L_list = list(L) + (tallest-len(L))*[" "]
+    R_list = list(R) + (tallest-len(R))*[" "]
+    
+    # The horizontal gap between the sets should always be roughly the same as the height
+    # This is because the height ratio is usually 2.4, so if it's equal then height is still 2.4x width
+    horizontal_gap = tallest
+    
+    # We will visualise the graph using the schematic to type in a string
+    schematic = ""
+    
+    # Now we will add the vertical layout of the vertices
+    # First the left vertex, the constant horizontal gap and then the right vertex
+    # It will look something like this:
+    
+    # A         H
+    # B         I
+    # C         J
+    # D         K
+    # E         L
+    # F
+    # G
+    
+    for i in range(tallest):
+        # Implements the above visual representation for the schematic
+        schematic += L_list[i] + horizontal_gap * " " + R_list[i]
+        
+        # Don't forget to add newlines(unless we're at the end)
+        if i != tallest-1: schematic += "\n"
+    
+    # Create the graph using no edges or weights, since we will add these now 
+    # Give the graph the same name so it gets put in the same folder 
+    G2 = create_graph(schematic, "", [], name=G.name)
+    
+    # Create colour mappings for the left and right partitions respectively
+    # So every vertex in a partition will get that partition's colour
+    colour_assignment_L = dict(zip( list(L) , [colours[0]] * len(L) )) 
+    colour_assignment_R = dict(zip( list(R), [colours[1]] * len(R) ))
+
+    # Assign the mappings to the graph
+    G2.assign_vertex_colours(colour_assignment_L)
+    G2.assign_vertex_colours(colour_assignment_R)
+    
+    for source_name, dest_name in G.edges():
+        
+        # Check if the original edge was bidirectional or not
+        original_edge = G.get_edge(source_name, dest_name)
+        
+        # Check if it was a bidirectional edge - hence both edges must exist and they cannot be curved
+        is_bidirectional = not original_edge.curved and G.get_edge(dest_name, source_name) is not None
+        
+        # First we check that both the source and destination are part of either the left or the right partitions
+        if (set([source_name, dest_name]).issubset(L.union(R))  ):
+            
+            # If they are then we can safely add the edge
+            
+            # Add the edge using the information provided
+            G2.add_edge(source_name, dest_name, is_bidirectional)
+        
+            # If they are from L to L or R to R then we colour the edges the opposite colour to show it's not bipartite
+            if source_name in L and dest_name in L:
+                same_partition_edges(G2, source_name, dest_name, colours[1])
+            elif source_name in R and dest_name in R:
+                same_partition_edges(G2, source_name, dest_name, colours[0])
+    
+    # Now we have finished building the graph so we can give it back to the user
+    return G2

@@ -3,8 +3,9 @@ import matplotlib.pyplot as plt
 from graph import Graph
 from graph_building_methods import create_graph
 from helper_functions import paragraphise
-from algorithms.bipartiteness import test_for_bipartiteness
+from algorithms.bipartiteness import test_for_bipartiteness, bipartite_form
 from algorithms.dfs import dfs
+from algorithms.dag import topological_sort
 from algorithm_video_maker import make_video
 import os, shutil
 
@@ -24,7 +25,7 @@ import os, shutil
 class Graph_algorithm():
     
     # The frame folder states where all the frames/videos should go
-    def __init__(self, capture : bool = True, frame_folder : str = "frames"):
+    def __init__(self, capture : bool = True, frame_folder : str = "captures"):
             
         # These folders should never be used as folders to store frames
         illegal_folders = set([".","","algorithms"])
@@ -116,6 +117,9 @@ class Graph_algorithm():
     # Save the current state of the current graph as a frame
     def save_state(self) -> None:
         
+        # We need to have a graph to save the state of
+        if self.current_graph is None: raise Exception("empty graph algorithm object - add a graph using add_graph")
+        
         # We will use these to determine what to call each frame
         this_graphs_name : str = self.current_graph.name
         graph_frame_count : int = self.frame_counter[this_graphs_name]
@@ -188,7 +192,14 @@ class Graph_algorithm():
         self.recorded_info.append(info)
         
     # Given an algorithm A and graph G, compute A(G).
-    def run_algorithm(self, algorithm, graph : Graph = None, capture : bool = True):
+    # algorithm: the algorithm to run
+    # graph: the graph to run the algorithm on
+    # capture : if set to true, images and a video will be produced. Otherwise, neither will be produced.
+    # kill_existing : if set to true, deletes the existing contents of the folder
+    # save_video : if set to true, we will also produce a video, otherwise only images
+    # args and kwargs - you can specify the specific arguments to the algorithm, if it accepts any
+    def run_algorithm(self, algorithm, *args, graph : Graph = None, capture : bool = True,
+                      kill_existing : bool = True, save_video : bool = True, **kwargs) -> None:
         
         # Store the original capturing in a variable - we'll override the 
         # object's capturing preference for now but set it back after we finish
@@ -205,57 +216,56 @@ class Graph_algorithm():
         filepath = self.frame_folder + "/" + graph.name
         
         # If we are capturing, delete the existing files to avoid issues with the video
-        if capture: shutil.rmtree(filepath, ignore_errors=True)
+        if capture and kill_existing: shutil.rmtree(filepath, ignore_errors=True)
         
         # Call the algorithm and run it, obtaining some result
-        algorithm_result = algorithm(self)
+        algorithm_result = algorithm(self, *args, **kwargs)
 
-        if capture: make_video(graph.name + "_" + algorithm.__name__ + ".mp4", filepath)
+        if capture and save_video: make_video(graph.name + "_" + algorithm.__name__ + ".mp4", filepath)
         
         # Don't forget to set the capturing flag back to the original        
         self.capturing = remember
         
         return algorithm_result
         
-        
-    
 s = ( 
 '''
-
-    A       D              X    Y
-                G   
-    B               I         Z                           
+    A       D
+                G
+    B               I
                 H
     C       F
-    
-    P       Q               K
-    
-R       V        U
-                            J
-    S       T
     
 
 ''' )
 
 
 
-edges = '''(B,A),(B,C),(C,F),(A,D),(D,G),(F,H),(H,F) , (G,D), (G,I),(H,I),(B,I), (B,D),(D,B) , (B,F), (F,B), {H,F},
-            (P,Q),(V,Q),(Q,V),(U,V),(U,T),(V,T),(S,T),(S,R),(R,P),(K,J),(X,Y),(Z,Y)'''
+edges = "(B,A),(B,C),(C,F),(A,D),(D,G),(F,H),(H,F) , (G,D), (G,I),(H,I),(B,I), (B,D),(D,B) , (B,F), (F,B), {H,F}"
+    
+
 
 # Example weights
 weights = []
 
 # Build the graph according to the vertex schematic, edges and weights
-G = create_graph(s, edges, weights, vertexcolour="lime")
+G = create_graph(s, edges, weights, vertexcolour="orange")
+
 H = G.clone("H")
 
-H.remove_edge("C","F")
-H.remove_edge("A","D")
+I = H.clone("I")
+
 
 # Instantiate the graph algorithm on the graph
 GA = Graph_algorithm()
 
-print( GA.run_algorithm(dfs,G) )
+
+GA.run_algorithm(dfs, graph=G)
+GA.run_algorithm(test_for_bipartiteness, graph=H)
+GA.run_algorithm(topological_sort, graph=I)
+
+
+
 
 
 

@@ -39,6 +39,9 @@ class Edge():
         
         # If no colour is specified then let it be the default
         if colour is None: colour = self.owner.edgecolour
+    
+    # Get the name of this edge
+    def name(self) -> str: return self.source.name + "-" + self.destination.name
         
     # Set the type of visual line of an edge
     def set_linestyle(self, linestyle : str = None) -> None:

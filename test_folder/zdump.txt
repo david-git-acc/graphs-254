@@ -290,3 +290,22 @@ def selfloop_arrow(sourcev : Vertex, frac_diam : float, ax, edgecolour : str = "
         
         # Now that the graph copy has been fully constructed, we can return it to the user
         return G
+
+
+s = ( 
+'''
+
+    A
+
+P   B   Q
+    
+    C
+
+D       E
+
+G   F   H
+        
+''' )
+
+
+edges = '''(A,B),(B,C),(C,D),(D,F),(E,F),(C,E),(D,G),(E,H), (P,Q),(Q,P)'''

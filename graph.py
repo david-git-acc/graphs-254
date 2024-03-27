@@ -80,8 +80,20 @@ class Graph():
         # Make the plot go outside of [0,1] so we can't see it in the graph but we can still reference it
         self.legend_ref = ax.scatter([10,10],[20,20], marker=f"${self.name}$", color=self.vertex_textcolour)
     
+    # Given an assignment of names to new names, rename the vertices of the graph
+    # The "safe" keyword ensures that we don't create duplicate names, and throws an exception if so
+    def rename_vertices(self, name_assignment : dict[str,str], safe : bool = True) -> None:
+        
+        # For each mapping, try to rename the vertex
+        for oldname, newname in list(name_assignment.items()):
+            
+            # Rename the vertex
+            self.get_vertex(oldname).rename(newname, safe=safe)
     
-    # Create a perfect deep clone of the graph
+    # Rename the graph - I only made this a method to be consistent with vertex
+    def rename(self, newname : str): self.name = newname
+    
+    # Create a perfect deep clone of the graph (without highlights)
     def clone(self, graph_name : str = None):
         
         # Make sure that a name has been properly defined so we don't confuse the graphs
@@ -220,6 +232,39 @@ class Graph():
         
         # Perform the colour assignment
         self.assign_edge_colours(colour_assignment)
+    
+    # Get the current assignment of vertex colours in the graph
+    # Returns a dictionary containing the vertex name as the key and its colour as the value
+    def get_vertex_colours(self) -> dict[str, str]:
+        
+        # Store the colour assignments here
+        colours : dict[str,str] = {}
+        
+        for vertex in self.vertices():
+            
+            # Get the vertex's current colour
+            vertex_colour = self.get_vertex(vertex).colour
+
+            # Update the colour assignment 
+            colours.update({ vertex : vertex_colour })
+            
+        return colours
+
+    # Get the current assignment of edge colours in the graph 
+    def get_edge_colours(self) -> dict[tuple[str,str],str]:
+    
+        # Like before, initialise empty colour mapping
+        colours : dict[tuple[str,str], str] = {}
+        
+        for edge_name in self.edges():
+            
+            # Get the colour of this edge
+            edge_colour = self.get_edge(edge_name).colour
+        
+            # Update the colour assignment
+            colours.update({ edge_name : edge_colour })
+            
+        return colours
         
     
     # Given a dictionary of vertex keys and colour values, for each vertex key set its colour to the corresponding colour
@@ -511,13 +556,13 @@ class Graph():
             
     # Get an edge from the graph
     # Used so we can mimic encapsulation and avoid having to access internal attributes
-    def get_edge(self, source_name : str, destination_name : str):
+    def get_edge(self, source_name : str, destination_name : str) -> Edge:
         
         # Just a wrapper for the dict
         return self.E.get((source_name, destination_name))
     
     # Same idea but for vertices
-    def get_vertex(self, vertex_name : str):
+    def get_vertex(self, vertex_name : str) -> Vertex:
         return self.V.get(vertex_name)
       
     # Add an edge to the graph. both is used for bi-directional edges

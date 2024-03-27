@@ -290,25 +290,24 @@ def create_graph(schematic : str, edges : str, weights : list[float] = [], heigh
 
 s = ( 
 '''
-    J    A       D
-    
-                     G
-E      B                  I                      
-                     H
-                     
-    K    C       F
-    
-        
+
+A          B
+
+
+C          D
+
 ''' )
 
 
-edges = '''(B,A),(B,C),(C,F),(A,D),(D,G),(F,H),(H,F) , (G,D), (G,I),(H,I),(B,I), (B,D),(D,B) , (B,F), (F,B), {H,F}, {D,F}, {G,H},
-(K,C),(C,K),(J,A),(A,J),(B,J),(J,B),(B,K),(K,B), (E,J),(E,K), (E,B)'''
+edges = '''{A,C},{C,D},{D,B},{A,B}'''
 
-weights = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
 
-G = create_graph(s, edges, weights, vertexcolour="lime" ,edgecolour="black",
-                 linestyle = "solid")
+
+# G = create_graph(s, edges, [], vertexcolour="blue" ,edgecolour="black",
+#                  linestyle = "solid")
+
+# G.highlight_edge("C","B", edgecolour="cyan")
+# G.highlight_edge("A","D", edgecolour="cyan")
 
 # D = G.get_vertex("D")
 
@@ -343,7 +342,7 @@ G = create_graph(s, edges, weights, vertexcolour="lime" ,edgecolour="black",
 
 # G.add_edge("A","A")
 
-plt.savefig("test_folder/" + G.name + ".png")
+# plt.savefig("test_folder/" + G.name + ".png")
 
 
 
