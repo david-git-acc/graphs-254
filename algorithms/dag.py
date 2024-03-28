@@ -5,9 +5,10 @@ from helper_functions import paragraphise
 # Returns a 3-tuple, where the first element is True/False for whether it's a DAG
 # The second element is the assignment of numbers to vertices (given by vertex names)
 # The third element is a list of edges in the graph, if any, which violate the topological sorting
+# fail and success colour are used to check if an edge follows or does not follow the topological sort
 # We use the DFS-based algorithm to perform the topological sort
 def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_colours : list[str] = ["red","lime"]
-                     , fail_colour : str = "red" ) -> tuple[bool, dict[str, int], list[tuple[str,str]] ]:
+                     , fail_colour : str = "red", success_colour : str = "lime", capture : bool = True ) -> tuple[bool, dict[str, int], list[tuple[str,str]] ]:
     
     def algorithm_text(ordering : dict[str,int], violating_edges : set[tuple[str,str]], cpl : int) -> str:
         
@@ -19,8 +20,7 @@ def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gol
         
         # Give back the ordering of vertices and the edges in string format
         return paragraphise("Topological ordering: " + ordering_string + "\nViolating edges: " + violating_edges_str, cpl)
-        
-        
+               
     # Switch to the current graph being used by the graph algorithm
     G = GA.get_current_graph()
     
@@ -32,7 +32,7 @@ def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gol
     
     # Run DFS on the graph to get the DFS finish numbers
     dfs_finish_numbers = GA.run_algorithm(dfs, graph=G, start_vertex_name=start_vertex_name, highlight_colour=highlight_colour, 
-                                          finish_colours=finish_colours, kill_existing=False, save_video = False)
+                                          finish_colours=finish_colours, kill_existing=False, capture=capture, save_video = False)
     
     # The topological ordering of G = number of vertices - finish_number + 1, so we need the number of vertices n
     n = len(G.V)
@@ -51,7 +51,7 @@ def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gol
     # We will replace all vertex names so that they contain their topological orderings
     # Hence we need to store these names somewhere so that we can restore the original names afterwards
     original_vertex_names = G.vertices()
-    new_vertex_names = [ vertex_name + f" ({topological_ordering[vertex_name]}) " for vertex_name in original_vertex_names ]
+    new_vertex_names = [ vertex_name + f" ({topological_ordering[vertex_name]})" for vertex_name in original_vertex_names ]
     
     # Create mappings between the original and new vertex names so we can use them
     org_to_new = dict(zip(original_vertex_names, new_vertex_names))
@@ -69,6 +69,9 @@ def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gol
     # Save at this point before we begin checking edges - do it twice so we get more time to look at it
     GA.save_state()
     GA.save_state()
+    
+    # Store a list of edges that will need to be highlighted (because they follow the ordering)
+    non_violating_edges = []
 
     # Now for each edge we will check if it satisfies the definition
     for source_name, dest_name in G.edges():
@@ -90,7 +93,16 @@ def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gol
             GA.add_text(algorithm_text(topological_ordering, violating_edges,G.characters_per_line))
             GA.annotate(G, f"The edge from {source_name} to {dest_name} violates the topological ordering.")
             GA.save_state()
-        
+            
+        # If they do follow the ordering then add them to the list of non violating edges for later highlighting
+        else: non_violating_edges.append((source_name, dest_name))
+            
+    # For every edge that passes the check we colour it in the success colour
+    for edge_name in non_violating_edges: 
+        # If the edge isn't already highlighted (see: bidirectional edges)
+        if G.highlighted_edges.get(edge_name) is None:
+            GA.highlight_edge(G, edge_name, success_colour)
+
     # This allows us to determine if G is a DAG - if all edges follow the ordering then it's a DAG
     is_dag = len(violating_edges) == 0
     
@@ -109,6 +121,10 @@ def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gol
     # Give the vertices their old names back
     GA.rename_vertices(G, new_to_org)
     
+    # Also get rid of any text we added to return to the original graph
+    GA.clear_text()
+    GA.clear_annotations(G)
+     
     # Give back all the important information
     return (is_dag, topological_ordering, list(violating_edges))
     

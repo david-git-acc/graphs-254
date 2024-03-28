@@ -177,7 +177,8 @@ def curved_directed_edge_arrow(sourcev, destv, d : float, ax, edgecolour : str =
 # We will cut a chord across the top of the vertex circle, and the points of intersection X1,X2 between the chord and
 # the circle will be used to create another circle, which will be used as the curved line of the self loop
 # We will then create an arrow for the self loop by calculating its position on the circle so it points directly to the vertex
-def selfloop_arrow(sourcev, frac_diam : float, ax, edgecolour : str = "black" , linestyle : str = "solid"):
+def selfloop_arrow(sourcev, frac_diam : float, ax, edgecolour : str = "black" , linestyle : str = "solid",
+                   background_colour : str = "white"):
     
     # The x and y coordinates of the vertex
     x,y = sourcev.x, sourcev.y
@@ -214,7 +215,7 @@ def selfloop_arrow(sourcev, frac_diam : float, ax, edgecolour : str = "black" , 
     mapped_x2,mapped_y2 = rotate(chord_x,chord_y, x, selfloop_y, arrowsize/r)
     
     # This the slefloop, we use a white facecolor to make sure it's hollow to create the self loop appearance
-    circ = plt.Circle((x,selfloop_y), r, facecolor="white",edgecolor=edgecolour, zorder=0, clip_on=False, linestyle=linestyle)
+    circ = plt.Circle((x,selfloop_y), r, facecolor=background_colour,edgecolor=edgecolour, zorder=0, clip_on=False, linestyle=linestyle)
 
     # The circle must be placed on the same axes as the vertex, obviously
     ax.add_patch(circ)

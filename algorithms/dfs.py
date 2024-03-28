@@ -3,7 +3,13 @@
 from helper_functions import paragraphise
 
 # Depth-first-search that computes vertex finish numbers
-def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_colours : list[str] = ["red","lime"]) -> dict[str,int]:
+def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_colours : list[str] = ["red","lime"],
+        capture : bool = True) -> dict[str,int]:
+    
+    # Create mappings to convert from the old vertex names (the vertex names themselves) 
+    # to the new vertex names which are the vertex + (DFS score)
+    org_to_new_names = {}
+    new_to_org_names = {}
     
     # Text to output during the algorithm execution
     def algorithm_text() -> str:
@@ -16,7 +22,7 @@ def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_co
         
         textstring = "Explored: " + explored_str + "\nFinish numbers: " + finish_numbers_str
         
-        return paragraphise(textstring, G.characters_per_line //2)
+        return paragraphise(textstring, G.characters_per_line)
     
     # Once all paths out of a vertex have been explored we have to execute some code to show this in the animation
     def finish_vertex(GA, current_vertex) -> None:
@@ -26,6 +32,16 @@ def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_co
         
         # Set its colour to the fully finished colour
         current_vertex.set_colour(finish_colours[1])
+        
+        # We will put the finish number score of the vertex as its new name so we can see it in the graph
+        new_vertex_name = current_vertex.name + f" ({current_finish_number})"
+        
+        # Update the name mappings so we know what the original name of the vertex is
+        org_to_new_names.update({ current_vertex.name : new_vertex_name  })
+        new_to_org_names.update({ new_vertex_name : current_vertex.name })
+        
+        # Rename the vertex so that it also includes its DFS finish number
+        current_vertex.rename(new_vertex_name)
         
         # Update the text for the plot
         GA.clear_text()
@@ -48,7 +64,8 @@ def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_co
         
         # Recursively explore every vertex, updating the finishing numbers as we go
         for neighbour in neighbours:
-            if neighbour.name not in explored: 
+            # Only look at this vertex if we've not explored it before otherwise endless loop
+            if neighbour.name not in explored and new_to_org_names.get(neighbour.name,"") not in explored: 
                 
                 # Highlight the edge and vertices to show that they've been explored
                 GA.highlight_edge(G,(current_vertex.name, neighbour.name), highlight_colour)
@@ -66,6 +83,9 @@ def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_co
     
     # Fetch the current graph in use by the graph algorithm
     G = GA.get_current_graph()
+    
+    # Get the original set of vertex names - we will use this to find new vertices to start at after exhausting a search
+    original_vertices = set(G.vertices())
     
     # Get the original colours of the graph so we can reset them at the end
     original_colours = G.get_vertex_colours()
@@ -94,9 +114,10 @@ def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_co
     start_vertex.annotate("Start our DFS search at this vertex.")
     recursive_dfs(GA, start_vertex)
   
-    
+    # Keep doing this until every vertex is explored
     while len(explored) != len(G.V):
-        new_start_vertex_name = list(set(G.vertices()) - explored)[0]
+        # Pick some arbitrary unexplored vertex to restart the search from
+        new_start_vertex_name = list(original_vertices - explored)[0]
         new_start_vertex = GA.get_vertex(G,new_start_vertex_name)
         
         GA.highlight_vertex(G,new_start_vertex_name, highlight_colour)
@@ -104,6 +125,8 @@ def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_co
         
         recursive_dfs(GA, new_start_vertex)
         
+    # Rename the vertices back to their original names
+    GA.rename_vertices(G, new_to_org_names)
     
     GA.annotate(G, f"We have now fully explored {G.name} using Depth-first-search (DFS).")
     
@@ -118,6 +141,10 @@ def dfs(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_co
     # Return the vertices back to their original colours
     G.assign_vertex_colours(original_colours)
     
+    # Get rid of the annotations and text we added to return to the original graph
+    GA.clear_annotations(G)
+    GA.clear_text()
+
     # Give back the finish numbers once we're done
     return finish_numbers
 

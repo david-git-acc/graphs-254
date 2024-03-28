@@ -39,7 +39,12 @@ class Edge():
         
         # If no colour is specified then let it be the default
         if colour is None: colour = self.owner.edgecolour
-    
+        
+    # Get all the highlight properties of this edge - call from the graph method 
+    # since some highlights are for edges that don't actually exist
+    def highlight_properties(self) -> dict[str,str]:
+        return self.owner.get_edge_highlight_properties((self.source.name, self.destination.name))
+        
     # Get the name of this edge
     def name(self) -> str: return self.source.name + "-" + self.destination.name
         
@@ -127,9 +132,10 @@ class Edge():
                                     zorder=200, 
                                     ha="center",
                                     va="center",
-                                    backgroundcolor="white")
+                                    backgroundcolor=self.owner.background_colour)
             
-            weight_text.set_bbox(dict(zorder=-111, fc="white",ec="white"))
+            weight_text.set_bbox(dict(zorder=-111, fc=self.owner.background_colour,
+                                      ec=self.owner.background_colour))
             
             # Link the plot representation with this weight text
             self.plotrep.update({ "text" : weight_text })    

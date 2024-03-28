@@ -245,11 +245,11 @@ def add_edges(G : Graph, bi_edges : list[tuple],di_edges : list[tuple]):
 def create_graph(schematic : str, edges : str, weights : list[float] = [], heightratio : float =2.4,  display : bool =False,
                  vertexcolour : str = "red", edgecolour : str = "black", compress : bool = True,
                  vertex_textcolour : str = "black", edge_textcolour : str = "black" , linestyle : str = "solid",
-                 name : str = "G"):
+                 name : str = "G", resolution : int = 1080, background_colour : str = "white"):
 
 
     # Create the plot
-    fig, ax = plt.subplots(figsize=(1080*px,1080*px))
+    fig, ax = plt.subplots(figsize=(resolution*px,resolution*px))
     
     # The plot will always be a square normalised on (0,1) 
     ax.set_xlim([0,1])
@@ -276,7 +276,8 @@ def create_graph(schematic : str, edges : str, weights : list[float] = [], heigh
     # Create the Graph object
     G = Graph(name, ax, fig=fig, vertexcolour=vertexcolour, edgecolour=edgecolour, arrowsize=arrowsize, 
               vertex_textcolour= vertex_textcolour,edge_textcolour = edge_textcolour,
-              aspect_ratio = ncols/ (heightratio*nrows), linestyle=linestyle, legendsize=legendsize)
+              aspect_ratio = ncols/ (heightratio*nrows), linestyle=linestyle, legendsize=legendsize,
+              background_colour=background_colour)
     
     # Use the information we've gathered to add the vertices to the graph
     add_vertices(G, vertexinfo, nrows,ncols,X,Y)

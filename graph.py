@@ -1,14 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from helper_functions import directed_edge_arrow, curved_directed_edge_arrow, selfloop_arrow, point_orientation, paragraphise
+from helper_functions import directed_edge_arrow, curved_directed_edge_arrow, selfloop_arrow, paragraphise
 from def_edge import Edge
 from def_vertex import Vertex
 
-# Defining our graph theory objects
+# Defining our graph theory objects - the graph will store all the vertices and edges
 class Graph():
     def __init__(self, name, ax, fig = plt.gcf(), arrowsize : float =0.01, res : int =100, vertexcolour : str ="red",edgecolour : str="black",
                  vertex_textcolour : str = "black", edge_textcolour : str = "black", curved_edge_stretchiness : float = 1.4,
-                 aspect_ratio : float = None, linestyle : str = "solid", legendloc : tuple = (0.5, -0.025), legendsize : float = 20):
+                 aspect_ratio : float = None, linestyle : str = "solid", legendloc : tuple = (0.5, -0.025), legendsize : float = 20,
+                 background_colour : str = "white"):
         
         self.name = name
         
@@ -47,13 +48,18 @@ class Graph():
         self.vertexcolour = vertexcolour
         self.edgecolour = edgecolour
         
+        # The colour of the figure
+        self.background_colour = background_colour        
+        self.fig.set_facecolor(background_colour)
+        
         # The textcolour for all the weights and vertices
         self.vertex_textcolour = vertex_textcolour
         self.edge_textcolour = edge_textcolour
         
         # Set the arrowsize - the size of the arrows for directed edges
         self.arrowsize = arrowsize
-        
+
+        # We may want some dotted or dashed lines in our graph
         self.linestyle = linestyle
         
         # This constant determines how much curved edges will be stretched out
@@ -74,11 +80,77 @@ class Graph():
         
         # How many characters on a single line of annotation are allowed
         # 96 is the number of pixels in an inch, [0] gets the WIDTH of the figure
-        self.characters_per_line = int( fig.get_size_inches()[0] * 10 )
+        self.characters_per_line = int( fig.get_size_inches()[0] * 8 )
     
         # This isn't actually a plot, it's just so that I can add annotations for the graph
         # Make the plot go outside of [0,1] so we can't see it in the graph but we can still reference it
         self.legend_ref = ax.scatter([10,10],[20,20], marker=f"${self.name}$", color=self.vertex_textcolour)
+    
+    
+    # Convert the visual representation of the graph into polygon format
+    # For a graph with n vertices, we create a regular n-polygon of the graph 
+    # The coordinates of the vertices are determined by the solutions to the equation z^n = 1
+    # These solutions create coordinates around the unit circle, which create a regular n-gon for us
+    # Because the solutions may touch the edge of the graph, we add an offset to make sure they are 100% visible
+    def polygonise(self, offset : float = 0.05):
+        
+        # How many vertices are there?
+        n = len(self.V)
+        
+        # Creates the equation z^n - 1 = 0
+        equation = [1] + [0] * (n-1) + [-1]
+        
+        # Solutions to the equation - halve the radius so that they fit in (0,1) (also offset so they stay in view)
+        solutions = np.roots(equation) / (2 + offset)
+        
+        # We need the centre of the solutions in the circle in the middle so the solutions are distributed
+        solutions += (0.5 + 0.5j)
+        
+        # Get the polygon coordinates in list format so we can create the mapping of coordinates
+        polygon_coords = list(zip(list(solutions.real), list(solutions.imag)))
+        
+        # Create the vertex positional mapping to move the vertices to the new locations
+        vertex_mapping = dict(zip( self.vertices(), polygon_coords ))
+        
+        # Move the vertices to their new positions
+        self.move_vertices(vertex_mapping)
+
+        
+    # Move several vertices in the graph simultaneously using a vertex-location mapping
+    def move_vertices(self, vertex_mapping : dict [str, tuple[float,float]]) -> None:
+        
+        # Move each vertex in turn according to the mapping provided        
+        for vertex_name, newloc in list(vertex_mapping.items()):
+            self.move_vertex(vertex_name, newloc)
+            
+    
+    # Move a vertex in the graph to a new location
+    def move_vertex(self, vertex_name : str , newloc : tuple[float,float]) -> None: 
+        self.get_vertex(vertex_name).move(newloc)
+        
+
+    # Set the background colour of the graph's figure to some new colour
+    def set_background_colour(self, newcolour : str) -> None:
+        
+        # First set the colour attribute of the graph to the desired colour
+        self.background_colour = newcolour
+        
+        # First we change the background colour itself        
+        self.fig.set_facecolor(newcolour)
+        
+        # But we also need to update the background colour of the edgeweights since they match the figure colour
+        for edge in self.edges(objects=True):
+            # The edgeweight colour is based off the background colour, so just updating them like this will work
+            edge.set_weight(edge.weight)
+            
+            # For self loops we need to change their inner circle so it also matches the background colour
+            if edge.source == edge.destination:
+                
+                # Then we need to update the inner circle of the self loop (since all self loops are modelled as circles)
+                edge.plotrep["visual"].set_facecolor(newcolour)
+        
+        # Now we've completed changing the background colour
+    
     
     # Given an assignment of names to new names, rename the vertices of the graph
     # The "safe" keyword ensures that we don't create duplicate names, and throws an exception if so
@@ -92,6 +164,9 @@ class Graph():
     
     # Rename the graph - I only made this a method to be consistent with vertex
     def rename(self, newname : str): self.name = newname
+    
+    # Rename a vertex using the vertex' own internal method
+    def rename_vertex(self, vertex_name : str, newname : str): self.get_vertex(vertex_name).rename(newname)
     
     # Create a perfect deep clone of the graph (without highlights)
     def clone(self, graph_name : str = None):
@@ -350,6 +425,82 @@ class Graph():
         the_vertex.plotrep.update({ "highlight" : highlight })
     
     
+    # Get all the vertex highlighting properties of an edge - mostly implemented for consistency with edges
+    def get_vertex_highlight_properties(self, vertex_name : str) -> dict[str,str]:
+        
+        # Check if the vertex exists
+        the_vertex = self.get_vertex(vertex_name)
+        
+        # If the vertex doesn't exist then return None to show this
+        # This is different from edges because theoretically a highlight edge can exist where the edge itself does not
+        # But not so for vertices, hence the asymmetry
+        if the_vertex is None: return None
+        
+        # Otherwise if the vertex exists, we can just give its highlighting properties
+        return the_vertex.highlight_properties()
+    
+    # Get all the edge highlighting properties of an edge
+    def get_edge_highlight_properties(self, edge_name : tuple[str,str]) -> dict[str,str]:
+        
+        # Check if the edge exists
+        the_edge = self.get_edge(*edge_name)    
+        
+        # Get the highlighted edge's properties
+        highlighted_edge = self.highlighted_edges.get(edge_name)
+        
+        # This is where we store the information about the edge's highlighting - initialise all as None
+        edge_highlight_properties =  {"colour" : None,
+                                      "highlight_ratio" : None,
+                                      "alpha" : self.highlight_alpha,
+                                      "highlight_through" : None}
+        
+        # Make sure the highlighted edge actually exists - if not, then just give the null properties
+        if highlighted_edge is None: return edge_highlight_properties
+
+        # If the edge exists we need to check what type of edge it is
+        if the_edge is not None:
+            
+            # If source == destination then it's a self loop
+            is_self_loop = edge_name[0] == edge_name[1]
+            
+            # If a self loop then it's a circle
+            if is_self_loop:
+                          
+                # As a circle, its colour property is actually the edge colour (vs. the facecolour)
+                edge_highlight_properties.update({ "colour" : highlighted_edge.get_edgecolor() })
+                
+                # The highlight ratio is how much of the outer circle is shaded compared to the vertex circle               
+                edge_highlight_ratio = highlighted_edge.radius / self.get_vertex( edge_name[0] ).radius
+                
+                # Check if we the highlighting has nonzero priority
+                highlight_through = highlighted_edge.zorder != 0
+                
+                # Now add these to our dictionary
+                edge_highlight_properties.update({ "highlight_ratio" : edge_highlight_ratio,
+                                                    "alpha" : highlighted_edge.get_edgecolor()[3],
+                                                   "highlight_through" : highlight_through})
+                
+            # Otherwise the properties are quite consistent for arrows and bidirectionals
+            else:
+                
+                edge_highlight_ratio = highlighted_edge.get_linewidth() / the_edge.plotrep["visual"].get_linewidth()
+                
+                highlight_through = highlighted_edge.zorder != 0
+                
+                # Now add these to our dictionary
+                edge_highlight_properties.update({ "colour" : highlighted_edge.get_color(),
+                                                  "highlight_ratio" : edge_highlight_ratio,
+                                                   "highlight_through" : highlight_through})
+            
+        else:
+            
+            # Otherwise the edge doesn't exist - much easier to get this information
+            edge_highlight_properties.update({ "colour" : highlighted_edge.get_color(),
+                                              "highlight_ratio" : self.highlight_ratio_edges,
+                                               "highlight_through" : highlighted_edge.zorder != 0})
+    
+        return edge_highlight_properties
+    
     # Highlight an edge in the graph a given colour
     def highlight_edge(self, edge_name, colour : str = None, 
     highlight_ratio : float = None, alpha : float = None, highlight_through : bool = None) -> None:
@@ -386,7 +537,7 @@ class Graph():
                                                 alpha = alpha,
                                                 linewidth = visual_edge.get_linewidth() * self.highlight_ratio_edges,
                                                 edgecolor = colour,
-                                                facecolor = "white",
+                                                facecolor = self.background_colour,
                                                 zorder = highlight_through * 1000,
                                                 clip_on = False)
                 
@@ -469,8 +620,10 @@ class Graph():
                 # Add the highlighted line to its plot representation so we can reference it from there
                 other_edge.plotrep["highlight"] = highlighted_line
      
-       
-       
+     
+    # Remove a vertex highlighting in the graph - only implemented for consistency with edges
+    def remove_vertex_highlight(self, vertex_name : str) -> None: self.highlight_vertex(vertex_name, None)
+    
     
     # Remove an edge highlighting in the graph
     def remove_edge_highlight(self, edge_name : tuple[str]) -> None:
@@ -602,7 +755,8 @@ class Graph():
         if sourcev == destv:
 
             # Create the selflooping arrow - we need the arrowhead
-            selfloop_arrowhead, visual_edge, midpoint_x, midpoint_y = selfloop_arrow(sourcev,0.5, self.ax, edgecolour, linestyle=linestyle)
+            selfloop_arrowhead, visual_edge, midpoint_x, midpoint_y = selfloop_arrow(sourcev,0.5, self.ax, edgecolour, 
+                                                        linestyle=linestyle, background_colour=self.background_colour)
             
             # Add the edge itself
             sourcev.add_edge(sourcev, visual_edge, midpoint = [midpoint_x, midpoint_y], edgecolour=edgecolour, weight=weight,
@@ -739,6 +893,9 @@ class Graph():
     # Remove an edge from the graph; both states where it should be a bidirectional removal or just one
     def remove_edge(self, source_name : str, destination_name : str, both : bool = False) -> None:
         
+        # First clear the highlighting
+        self.highlight_edge((source_name, destination_name) , None)
+        
         if source_name == destination_name:
 
             # Get the vertex and the edge so we can reference them for deletion
@@ -821,6 +978,9 @@ class Graph():
     # Also removes all edges connected to it
     def remove_vertex(self, vertex_name : str) -> None:
         
+        # First remove the highlighting from the vertex        
+        self.highlight_vertex(vertex_name, None)
+        
         # Grab the vertex itself
         the_vertex : Vertex = self.V.get(vertex_name)
         
@@ -861,7 +1021,7 @@ class Graph():
         # Create a circle for the vertex
         circ = plt.Circle((x,y), radius, 
                           facecolor=colour,
-                          edgecolor="black",
+                          edgecolor=self.edgecolour,
                           zorder=1, 
                           clip_on=False )
         

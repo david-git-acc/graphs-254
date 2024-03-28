@@ -5,7 +5,7 @@ from graph_building_methods import create_graph
 # Determine if a graph is bipartite. If it is, then return the mappings - otherwise return False and the failed assignment
 # Note that this problem is exactly equivalent to 2-colouring, so there is a trivial poly. reduction to it from this
 def test_for_bipartiteness(GA, colours : list[str] = ["lime","red","grey"],
-                            highlight_colour : str = "gold") -> tuple[bool, tuple[set,set,set]]:
+                            highlight_colour : str = "gold", capture : bool = True) -> tuple[bool, tuple[set,set,set]]:
     
     # Get the current graph being looked at by the algorithm
     G = GA.get_current_graph()
@@ -169,9 +169,16 @@ def test_for_bipartiteness(GA, colours : list[str] = ["lime","red","grey"],
     GA.annotate(G2, f"This is the attempted bipartite construction of {G.name}.")
     GA.save_state()
     
+    # Now we need to go back to the original graph and reset the changes we made
+    GA.switch_to_graph(G)
+    
     # Remove any remaining highlighting and return the original colours back to their existing values
     GA.clear_highlighting(G)
     G.assign_vertex_colours(original_colours)
+    
+    # Also get rid of any text we added to return to the original graph state
+    GA.clear_text()
+    GA.clear_annotations(G)
     
     # Then at the end we return the result (yes/no), and the partitions we tried to assign to the vertices
     return (is_bipartite, (partitions[c1], partitions[c2], partitions[c_unassigned]))
@@ -191,7 +198,12 @@ def same_partition_edges(G, source_name, dest_name, colour):
     
     # Make sure the fake edge can't overlap with anything, it will always get lower priority
     G.get_edge(dest_name, source_name).plotrep["visual"].set_zorder(-1)
-    G.get_edge(dest_name, source_name).plotrep["arrow"].set_zorder(-1)
+    
+    # If we have a selfloop then the arrow will be called "selfloop_arrow" not "arrow"
+    arrowstring = "arrow" if source_name != dest_name else "selfloop_arrow"
+    
+    # Also hide the arrow as well to stop that from overlapping
+    G.get_edge(dest_name, source_name).plotrep[arrowstring].set_zorder(-1)
 
 
 # Construct a visual representation of a bipartite graph 

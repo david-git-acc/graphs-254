@@ -219,7 +219,7 @@ class Graph_algorithm():
         if capture and kill_existing: shutil.rmtree(filepath, ignore_errors=True)
         
         # Call the algorithm and run it, obtaining some result
-        algorithm_result = algorithm(self, *args, **kwargs)
+        algorithm_result = algorithm(self, *args,  capture=capture, **kwargs)
 
         if capture and save_video: make_video(graph.name + "_" + algorithm.__name__ + ".mp4", filepath)
         
@@ -230,39 +230,50 @@ class Graph_algorithm():
         
 s = ( 
 '''
-    A       D
-                G
-    B               I
-                H
-    C       F
-    
 
+    A
+
+    B   
+    
+    C
+
+D       E
+
+G   F   H
+        
 ''' )
 
 
-
-edges = "(B,A),(B,C),(C,F),(A,D),(D,G),(F,H),(H,F) , (G,D), (G,I),(H,I),(B,I), (B,D),(D,B) , (B,F), (F,B), {H,F}"
+edges = '''(A,B),(B,C),(C,D),(D,F),(E,F),(C,E),(D,G),(E,H)'''
     
 
 
 # Example weights
-weights = []
+weights =[]# list((np.random.rand(17)*100).astype(int))
 
 # Build the graph according to the vertex schematic, edges and weights
-G = create_graph(s, edges, weights, vertexcolour="orange")
+G = create_graph(s, edges, weights, vertexcolour="pink", background_colour="skyblue", edgecolour="purple",
+                 edge_textcolour="brown",vertex_textcolour="black")
 
-H = G.clone("H")
+# H = G.clone("H")
 
-I = H.clone("I")
-
+# I = H.clone("I")
 
 # Instantiate the graph algorithm on the graph
 GA = Graph_algorithm()
 
 
-GA.run_algorithm(dfs, graph=G)
-GA.run_algorithm(test_for_bipartiteness, graph=H)
-GA.run_algorithm(topological_sort, graph=I)
+plt.savefig("G.png")
+
+
+
+G.polygonise()
+
+# G.rename_vertex("O","OP")
+# G.move_vertex("OP", (0.95,0.95))  z^n - 1 = 0
+
+plt.savefig("G2.png")
+
 
 
 
