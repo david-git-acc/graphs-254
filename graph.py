@@ -87,12 +87,20 @@ class Graph():
         self.legend_ref = ax.scatter([10,10],[20,20], marker=f"${self.name}$", color=self.vertex_textcolour)
     
     
-    # Convert the visual representation of the graph into polygon format
+
+        
+        
+    
+    
+    # Create a copy of the graph, whose visual representation is in polygon format
     # For a graph with n vertices, we create a regular n-polygon of the graph 
     # The coordinates of the vertices are determined by the solutions to the equation z^n = 1
     # These solutions create coordinates around the unit circle, which create a regular n-gon for us
     # Because the solutions may touch the edge of the graph, we add an offset to make sure they are 100% visible
     def polygonise(self, offset : float = 0.05):
+        
+        # Create copy of the graph to be made into polygon format
+        G_poly = self.clone(self.name+"_poly")
         
         # How many vertices are there?
         n = len(self.V)
@@ -113,7 +121,10 @@ class Graph():
         vertex_mapping = dict(zip( self.vertices(), polygon_coords ))
         
         # Move the vertices to their new positions
-        self.move_vertices(vertex_mapping)
+        G_poly.move_vertices(vertex_mapping)
+        
+        # Give back the polygonised form of the graph
+        return G_poly
 
         
     # Move several vertices in the graph simultaneously using a vertex-location mapping
@@ -167,9 +178,19 @@ class Graph():
     
     # Rename a vertex using the vertex' own internal method
     def rename_vertex(self, vertex_name : str, newname : str): self.get_vertex(vertex_name).rename(newname)
-    
-    # Create a perfect deep clone of the graph (without highlights)
-    def clone(self, graph_name : str = None):
+
+
+    def clone(self, graph_name : str = None, preserve_highlights : bool = True):
+        """
+        Create a perfect deep clone of the graph (without highlights)
+
+        Args:
+            graph_name (str, optional): the name of the new clone graph. Defaults to None.
+            preserve_highlights (bool, optional): whether to preserve the highlighting of the original graph. Defaults to True.
+
+        Returns:
+            Graph: the clone graph with name graph_name, with identical attributes to the original.
+        """
         
         # Make sure that a name has been properly defined so we don't confuse the graphs
         if graph_name is None: graph_name = "copy of " + self.name
@@ -192,7 +213,8 @@ class Graph():
                           self.aspect_ratio,
                           self.linestyle,
                           self.legendloc,
-                          self.legendsize)
+                          self.legendsize,
+                          self.background_colour)
         
         
         # First we copy the vertices, since we can't add edges/highlights without the vertices
@@ -214,6 +236,12 @@ class Graph():
             
             # Now we can add the edge to the graph as we needed
             G.add_edge(edge.source.name, edge.destination.name, is_bidirectional, edge.weight, edge.colour )
+
+        # The user may not want to keep all the highlighting for the new graph
+        if preserve_highlights:
+            # Now we copy over the highlights from the original graph to preserve the highlightings
+            G.assign_vertex_highlights(self.get_all_vertex_highlight_properties())
+            G.assign_edge_highlights(self.get_all_edge_highlight_properties())
             
         # Now that the graph copy has been fully constructed, we can return it to the user
         return G
@@ -232,7 +260,7 @@ class Graph():
         self.ax.legend(loc="center", bbox_to_anchor=self.legendloc, fancybox=True, shadow=True, fontsize=self.legendsize)
         
         
-    # Get the edges of the graph - if objects = True then give only the objects, otherwise give only the keys
+    # Get the edges of the graph - if objects = True then give only the objects, otherwise give only the string names
     def edges(self, objects : bool = False) -> list[Edge]: 
         
         if objects: return list(self.E.values())
@@ -362,8 +390,8 @@ class Graph():
             self.get_edge(*edge).set_colour(colour)
             
         
-    # Remove all the highlighting from the graph
     def clear_highlighting(self) -> None:
+        """Remove all the highlighting from the graph"""
         
         # Clear all the edges - can't get the edge because some highlighted edges don't exist in the graph
         for highlighted_edge in list(self.highlighted_edges.keys()):
@@ -501,8 +529,86 @@ class Graph():
     
         return edge_highlight_properties
     
+    
+    # Get a dictionary containing ALL the highlight properties of a vertex
+    # Mostly used to save vertex highlighting properties that are about to be removed so we can add them back later
+    # The idea is that assign_vertex_highlights(get_all_vertex_highlight_properties()) should make no change
+    def get_all_vertex_highlight_properties(self) -> dict[str, dict[str,str]]:
+        
+        # For every vertex we store its highlight properties and return this as a mapping
+        return { vertex_name : self.get_vertex_highlight_properties(vertex_name) for vertex_name in list(self.highlighted_vertices.keys()) }
+    
+      
+    # Given a mapping of vertex highlights, highlight all specified vertices with the corresponding qualities
+    # The vertex highlighting mapping must be a dict, where the key is the name of the vertex and the value
+    # is a dictionary containing the highlighting properties, which are:
+    # "colour" : this is the colour of the highlight
+    # "alpha" : this is the alpha (transparency) value of the highlight, indicating how transparent the highlight should be
+    # "highlight_ratio" : this is the thickness of the highlighting measured as a ratio of the radius of the vertex
+    # "highlight_through" : a boolean stating whether highlights should go over (True) or under (False) existing vertices
+    # The idea is that assign_vertex_highlights(get_all_vertex_highlight_properties()) should make no change
+    def assign_vertex_highlights(self, vertex_highlights : dict[str,dict[str,str]]) -> None:
+        
+        for vertex_name, vertex_highlight_info in list(vertex_highlights.items()):
+            
+            # If no information is specified or the colour is set to None, then we assume that it should be removed
+            if vertex_highlight_info is None or str(vertex_highlight_info.get("colour")).lower() == "none":
+                self.highlight_vertex(vertex_name, None)
+                
+            # Gather all the stats for this highlighted vertex, giving the default values if they don't exist
+            colour = vertex_highlight_info.get("colour")
+            alpha = vertex_highlight_info.get("alpha", self.highlight_alpha)
+            highlight_ratio = vertex_highlight_info.get("highlight_ratio", self.highlight_ratio_vertices)
+            highlight_through = vertex_highlight_info.get("highlight_through", self.highlight_through)
+            
+            # Highlight the vertex accordingly            
+            self.highlight_vertex(vertex_name, colour, highlight_ratio, alpha, highlight_through)
+            
+            
+    def assign_edge_highlights(self, edge_highlights : dict[tuple[str,str], dict[tuple[str,str],str]]) -> None:
+        """
+        Given a mapping of edge highlights, highlight all specified edges with the corresponding qualities
+        The edge highlighting mapping must be a dict, where the key is the name of the edge endpoints and the value
+        is a dictionary containing the highlighting properties, which are:
+        "colour" : this is the colour of the highlight
+        "alpha" : this is the alpha (transparency) value of the highlight, indicating how transparent the highlight should be
+        "highlight_ratio" : this is the thickness of the highlighting measured as a ratio of the edge thickness
+        "highlight_through" : a boolean stating whether highlights should go over (True) or under (False) existing edges 
+        The idea is that assign_edge_highlights(get_all_edge_highlight_properties()) should make no change
+
+        Args:
+            edge_highlights (dict[tuple[str,str], dict[tuple[str,str],str]]): the mapping of edge highlights for assignment
+        """
+        
+        for edge_name, edge_highlight_info in list(edge_highlights.items()):
+            
+            # If no information is specified or the colour is set to None, then we assume that it should be removed
+            if edge_highlight_info is None or str(edge_highlight_info.get("colour")).lower() == "none":
+                self.highlight_edge(edge_name, None)
+                
+            # Gather all the stats for this highlighted edge, giving the default values if they don't exist
+            colour = edge_highlight_info.get("colour")
+            alpha = edge_highlight_info.get("alpha", self.highlight_alpha)
+            highlight_ratio = edge_highlight_info.get("highlight_ratio", self.highlight_ratio_edges)
+            highlight_through = edge_highlight_info.get("highlight_through", self.highlight_through)
+            
+            # Highlight the vertex accordingly       
+            self.highlight_edge(edge_name, colour, highlight_ratio, alpha, highlight_through)
+        
+        
+    # Get a dictionary containing ALL the highlight properties of an edge
+    # Mostly used to save edge highlighting properties that are about to be removed so we can add them back later
+    # The idea is that assign_edge_highlights(get_all_edge_highlight_properties()) should make no change
+    def get_all_edge_highlight_properties(self) -> dict[tuple[str,str], dict[tuple[str,str],str]]:
+        
+        
+        # For every edge, store its highlight properties and return this so we can store these for later use
+        return { edge_name : self.get_edge_highlight_properties(edge_name) for edge_name in list(self.highlighted_edges.keys()) }
+    
+        
+    
     # Highlight an edge in the graph a given colour
-    def highlight_edge(self, edge_name, colour : str = None, 
+    def highlight_edge(self, edge_name : tuple[str,str], colour : str = None, 
     highlight_ratio : float = None, alpha : float = None, highlight_through : bool = None) -> None:
     
         # If these values are not set by the user, we will use the default values

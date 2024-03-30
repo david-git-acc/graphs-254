@@ -54,7 +54,7 @@ def make_video(filename : str, filepath : str, fps : int = 1, seconds_per_image 
     ax.axis('off')
     
     # Determine for how many frames each image should be on the screen for
-    frame_count_per_image = int( fps * seconds_per_image )
+    frame_count_per_image = ( fps * seconds_per_image )
     
     # The function that will be used to generate each frame of the video
     def animate_video(t):
@@ -66,13 +66,13 @@ def make_video(filename : str, filepath : str, fps : int = 1, seconds_per_image 
         ax.axis('off')
         
         # Get the image to show for this frame
-        img = images[t // frame_count_per_image]
+        img = images[int(t / frame_count_per_image)]
         
         # Actually show the image on the plot
         plt.imshow(img)
          
     # Create the animation itself using FuncAnimation    
-    anim = FuncAnimation(fig, animate_video, frames = frame_count_per_image * len(images))
+    anim = FuncAnimation(fig, animate_video, frames = int(frame_count_per_image * len(images)))
 
     # Save the animation to the filepath with the given filename by the user
     anim.save(filepath + "/" + filename, fps=fps, dpi=dpi)

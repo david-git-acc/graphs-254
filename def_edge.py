@@ -40,6 +40,15 @@ class Edge():
         # If no colour is specified then let it be the default
         if colour is None: colour = self.owner.edgecolour
         
+    # Determine if this edge is a self-loop, where the start and end vertices are the same
+    def is_self_loop(self) -> bool: return self.source == self.destination
+        
+    # Determine if this edge is bidirectional - that is, not a self loop or directed edge
+    def is_bidirectional(self) -> bool:
+        return (self.owner.get_edge(self.destination.name, self.source.name) is not None 
+                and not self.curved and not self.is_self_loop() )
+        
+        
     # Get all the highlight properties of this edge - call from the graph method 
     # since some highlights are for edges that don't actually exist
     def highlight_properties(self) -> dict[str,str]:

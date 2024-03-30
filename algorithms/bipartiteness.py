@@ -5,7 +5,7 @@ from graph_building_methods import create_graph
 # Determine if a graph is bipartite. If it is, then return the mappings - otherwise return False and the failed assignment
 # Note that this problem is exactly equivalent to 2-colouring, so there is a trivial poly. reduction to it from this
 def test_for_bipartiteness(GA, colours : list[str] = ["lime","red","grey"],
-                            highlight_colour : str = "gold", capture : bool = True) -> tuple[bool, tuple[set,set,set]]:
+                            highlight_colour : str = "gold") -> tuple[bool, tuple[set,set,set]]:
     
     # Get the current graph being looked at by the algorithm
     G = GA.get_current_graph()

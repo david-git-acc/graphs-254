@@ -8,7 +8,7 @@ from helper_functions import paragraphise
 # fail and success colour are used to check if an edge follows or does not follow the topological sort
 # We use the DFS-based algorithm to perform the topological sort
 def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gold", finish_colours : list[str] = ["red","lime"]
-                     , fail_colour : str = "red", success_colour : str = "lime", capture : bool = True ) -> tuple[bool, dict[str, int], list[tuple[str,str]] ]:
+                     , fail_colour : str = "red", success_colour : str = "lime" ) -> tuple[bool, dict[str, int], list[tuple[str,str]] ]:
     
     def algorithm_text(ordering : dict[str,int], violating_edges : set[tuple[str,str]], cpl : int) -> str:
         
@@ -31,8 +31,8 @@ def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gol
     GA.save_state()
     
     # Run DFS on the graph to get the DFS finish numbers
-    dfs_finish_numbers = GA.run_algorithm(dfs, graph=G, start_vertex_name=start_vertex_name, highlight_colour=highlight_colour, 
-                                          finish_colours=finish_colours, kill_existing=False, capture=capture, save_video = False)
+    dfs_finish_numbers,_ = GA.run_algorithm(dfs, graph=G, start_vertex_name=start_vertex_name, highlight_colour=highlight_colour, 
+                                          finish_colours=finish_colours, kill_existing=False, capture=GA.capturing, save_video = False)
     
     # The topological ordering of G = number of vertices - finish_number + 1, so we need the number of vertices n
     n = len(G.V)

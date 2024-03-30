@@ -3,9 +3,10 @@ import matplotlib.pyplot as plt
 from graph import Graph
 from graph_building_methods import create_graph
 from helper_functions import paragraphise
-from algorithms.bipartiteness import test_for_bipartiteness, bipartite_form
-from algorithms.dfs import dfs
-from algorithms.dag import topological_sort
+from algorithms.dfs import *
+from algorithms.dag import *
+from algorithms.bipartiteness import *
+from algorithms.scc import *
 from algorithm_video_maker import make_video
 import os, shutil
 
@@ -199,7 +200,8 @@ class Graph_algorithm():
     # save_video : if set to true, we will also produce a video, otherwise only images
     # args and kwargs - you can specify the specific arguments to the algorithm, if it accepts any
     def run_algorithm(self, algorithm, *args, graph : Graph = None, capture : bool = True,
-                      kill_existing : bool = True, save_video : bool = True, **kwargs) -> None:
+                      kill_existing : bool = True, save_video : bool = True,
+                      fps : int = 1, seconds_per_image : float = 2.5, **kwargs) -> None:
         
         # Store the original capturing in a variable - we'll override the 
         # object's capturing preference for now but set it back after we finish
@@ -219,9 +221,10 @@ class Graph_algorithm():
         if capture and kill_existing: shutil.rmtree(filepath, ignore_errors=True)
         
         # Call the algorithm and run it, obtaining some result
-        algorithm_result = algorithm(self, *args,  capture=capture, **kwargs)
+        algorithm_result = algorithm(self, *args, **kwargs)
 
-        if capture and save_video: make_video(graph.name + "_" + algorithm.__name__ + ".mp4", filepath)
+        if capture and save_video: make_video(graph.name + "_" + algorithm.__name__ + ".mp4", filepath,
+                                              fps=fps,seconds_per_image=seconds_per_image)
         
         # Don't forget to set the capturing flag back to the original        
         self.capturing = remember
@@ -244,35 +247,45 @@ G   F   H
 ''' )
 
 
-edges = '''(A,B),(B,C),(C,D),(D,F),(E,F),(C,E),(D,G),(E,H)'''
+edges = '''(A,B),(B,C),(C,D),(D,F),(F,D),(E,F),(F,E),(C,E),(D,G),(E,H),{A,A},{D,E}'''
     
 
 
 # Example weights
-weights =[]# list((np.random.rand(17)*100).astype(int))
+weights =list((np.random.rand(17)*100).astype(int))
 
 # Build the graph according to the vertex schematic, edges and weights
 G = create_graph(s, edges, weights, vertexcolour="pink", background_colour="skyblue", edgecolour="purple",
                  edge_textcolour="brown",vertex_textcolour="black")
 
-# H = G.clone("H")
+
 
 # I = H.clone("I")
 
 # Instantiate the graph algorithm on the graph
 GA = Graph_algorithm()
 
+plt.savefig("test.png")
 
-plt.savefig("G.png")
+G.highlight_edge(("E","D"),"gold")
+G.highlight_edge(("F","E"), "green")
+G.highlight_edge(("E","F"), "purple")
+G.highlight_edge(("A","B"),"lime")
+G.highlight_edge(("C","F"), "brown")
+G.highlight_edge(("A","A"), "pink")
+
+plt.savefig("test2.png")
+
+H = reverse_graph(G, "H")
+
+GA.switch_to_graph(H)
+
+plt.savefig("test3.png")
 
 
-
-G.polygonise()
 
 # G.rename_vertex("O","OP")
 # G.move_vertex("OP", (0.95,0.95))  z^n - 1 = 0
-
-plt.savefig("G2.png")
 
 
 
