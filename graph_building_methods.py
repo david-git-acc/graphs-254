@@ -245,7 +245,7 @@ def add_edges(G : Graph, bi_edges : list[tuple],di_edges : list[tuple]):
 def create_graph(schematic : str, edges : str, weights : list[float] = [], heightratio : float =2.4,  display : bool =False,
                  vertexcolour : str = "red", edgecolour : str = "black", compress : bool = True,
                  vertex_textcolour : str = "black", edge_textcolour : str = "black" , linestyle : str = "solid",
-                 name : str = "G", resolution : int = 1080, background_colour : str = "white"):
+                 name : str = "G", resolution : int = 1080, background_colour : str = "white", arrowsize : float = None):
 
 
     # Create the plot
@@ -270,7 +270,7 @@ def create_graph(schematic : str, edges : str, weights : list[float] = [], heigh
     # Create our X-Y grid
     _,_,X,Y = create_grid(ncols,nrows, heightratio, display=display)
     
-    arrowsize = (2/3) * ( X.max() - X.min() ) / (2 * ncols)
+    if arrowsize is None: arrowsize = 0.8* ( X.max() - X.min() ) / (2 * ncols)
     legendsize = 15
     
     # Create the Graph object
@@ -287,78 +287,4 @@ def create_graph(schematic : str, edges : str, weights : list[float] = [], heigh
 
     # Return the graph so we can use it
     return G
-
-
-s = ( 
-'''
-
-A          B
-
-
-C          D
-
-''' )
-
-
-edges = '''{A,C},{C,D},{D,B},{A,B}'''
-
-
-
-# G = create_graph(s, edges, [], vertexcolour="blue" ,edgecolour="black",
-#                  linestyle = "solid")
-
-# G.highlight_edge("C","B", edgecolour="cyan")
-# G.highlight_edge("A","D", edgecolour="cyan")
-
-# D = G.get_vertex("D")
-
-# D.annotate("hello I am a vertex")
-# G.get_vertex("A").annotate("No, I am the vertex", clear_previous= False)
-
-# G.get_edge("B","C").annotate("Nope!")
-
-# G.get_edge("A","D").highlight("red")
-
-# G.highlight_edge(("D","A"),"red")
-
-# G.get_edge("F","H").set_textcolour("green")
-# G.get_vertex("F").set_textcolour("lime")
-
-# G.add_edge("D","C", weight=31)
-# G.add_edge("C","D" , weight=298)
-# G.add_edge("C","D",both=True, weight=250)
-
-# G.get_edge("C","D").highlight("blue")
-# G.get_edge("D","C").highlight("violet")
-# G.get_edge("D","G").annotate("This function essentially attempts to format the text into paragraphs with a specified line length. However, it seems to have a limitation in handling words longer than the specified characters per line limit. Additionally, it might not accurately handle punctuation marks and spacing. Further refinement could involve considering these edge cases and improving the overall robustness of the function.")
-
-# G.set_vertex_textcolour("black")
-# G.set_edge_textcolour("blue")
-
-# G.get_edge("B","A").set_textcolour("purple")
-
-# G.get_vertex("D").set_colour("brown")
-
-# G.get_edge("F","H").set_linestyle("dotted")
-
-# G.add_edge("A","A")
-
-# plt.savefig("test_folder/" + G.name + ".png")
-
-
-
-# newG.save("hello2.png")
-
-
-
-
-
-
-
-
-
-
-
-
-
 

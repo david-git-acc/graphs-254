@@ -311,6 +311,26 @@ G   F   H
 edges = '''(A,B),(B,C),(C,D),(D,F),(E,F),(C,E),(D,G),(E,H), (P,Q),(Q,P)'''
 
 
+s = ( 
+'''
+
+    A
+
+P   B   R
+    
+Q   C   S
+
+D       E
+
+G   F   H
+        
+''' )
+
+
+edges = '''(A,B),(B,C),(C,D),(D,F),(E,F),(C,E),(D,G),(E,H), (P,Q),(Q,P), (P,Q),(Q,P),(R,S),(S,R),
+(R,A),(P,A),(D,Q),(E,S)'''
+
+
 
 s = ( 
 '''
@@ -334,3 +354,44 @@ edges = '''(P,R),(S,R), (S,T),(P,Q),(U,Q),(U,T),(R,W),(V,W),(X,W),(X,V),
            (U,Y),(Y,Z),(U,Z),(T,L),(S,X),(K,V),(K,M),(K,N),(K,O),{O,J},
            (M,O)
            '''
+
+s = ( 
+'''
+
+    A
+
+    B   
+    
+    C
+
+D       E
+
+G   F   H
+
+        
+''' )
+
+
+
+edges = '''(A,B),(B,C),(C,D),(D,F),(F,D),(E,F),(F,E),(C,E),(D,G),(E,H),{A,A},{D,E}'''
+
+s = ( 
+'''
+    P      V
+    
+Q                   U
+
+            R
+            
+    S
+        
+            T
+
+''' )
+
+
+
+edges = '''
+        {P,Q},{Q,S},{S,T},{S,R},{R,U},{U,V}
+
+'''

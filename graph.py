@@ -89,6 +89,26 @@ class Graph():
     
 
         
+    def clone_edge(self, edge_name : tuple[str,str], new_edge_name : tuple[str,str]) -> None:
+        """
+        Add a copy of an existing edge (source1,dest1) between a pair of vertices (source2,dest2).
+        Uses the edge method clone() - this is a graph wrapper method for convenience.
+
+        Args:
+            edge_name (tuple[str,str]): Tuple containing (source1, dest1) - an edge that already exists in the graph.
+            new_edge_name (tuple[str,str]): Tuple containing (source2, dest2) - the edge to be created.
+
+        Raises:
+            Exception: the edge (source1, dest1) does not exist, or the edge (source2,dest2) already exists.
+
+        """
+        
+        edge_to_copy : Edge = self.get_edge(*edge_name)
+        
+        if edge_to_copy is None: raise Exception(f"cloning edge {edge_name} does not exist")
+        
+        # We just use the edge cloning method for convenience
+        edge_to_copy.clone(*new_edge_name)
         
     
     
@@ -182,7 +202,7 @@ class Graph():
 
     def clone(self, graph_name : str = None, preserve_highlights : bool = True):
         """
-        Create a perfect deep clone of the graph (without highlights)
+        Create a perfect deep clone of the graph.
 
         Args:
             graph_name (str, optional): the name of the new clone graph. Defaults to None.
@@ -242,6 +262,9 @@ class Graph():
             # Now we copy over the highlights from the original graph to preserve the highlightings
             G.assign_vertex_highlights(self.get_all_vertex_highlight_properties())
             G.assign_edge_highlights(self.get_all_edge_highlight_properties())
+        
+        # Switch back to the perspective of the original graph
+        plt.figure(self.fig.number)
             
         # Now that the graph copy has been fully constructed, we can return it to the user
         return G
@@ -281,6 +304,36 @@ class Graph():
         
         plt.savefig(name)
         
+    
+    def assign_vertex_textcolours(self, mapping : dict[str,str]) -> None:
+        """
+        Assign text colours to vertices via a dictionary mapping.
+        The required format is { vertexname : newcolour }.
+
+        Args:
+            mapping (dict[str,str]): the colour mappings of the vertex text colours.
+
+        """
+        
+        # Perform the mapping
+        for vertex_name, textcolour in list(mapping.items()):
+            self.get_vertex(vertex_name).set_textcolour(textcolour)
+        
+    def assign_edge_textcolours(self, mapping : dict[tuple[str,str],str]) -> None:
+        
+        """
+        Assign text colours to edges (their weight values) via a dictionary mapping.
+        The required format is { (sourcename, destinationname) : newcolour }.
+        
+        Args:
+            mapping (dict[tuple[str,str],str]): The colour mappings of the edge text/weight colours.
+
+        """
+        
+        # Perform the mapping
+        for edge_name, textcolour in list(mapping.items()):
+            self.get_edge(*edge_name).set_textcolour(textcolour)
+        
     # Set the text colour of every vertex in the graph to a given colour
     def set_vertex_textcolour(self, colour : str) -> None:
         
@@ -294,6 +347,31 @@ class Graph():
         # For each edge set its colour
         for edge in list(self.E.keys()):
             self.get_edge(*edge).set_textcolour(colour)
+            
+    def get_vertex_textcolours(self) -> dict[str,str]:
+        
+        """
+        Get all the text colours of all vertices.
+        The given format is { vertexname : colour }.
+        
+        Returns:
+            dict[str,str]: The current mapping of text colours for the graph's vertices.
+        
+        """
+        
+        return {vertex.name : vertex.textcolour for vertex in self.vertices(objects=True)}
+            
+    def get_edge_textcolours(self) -> dict[tuple[str,str],str]:
+        
+        """
+        Get all the text colours (weights) of all edges.
+        The given format is { (sourcename, destinationname) : colour }.
+
+        Returns:
+            dict[tuple[str,str],str]: the current mapping of text colours for the graph's edges.
+        """
+        
+        return { (edge.source.name, edge.destination.name) : edge.textcolour for edge in self.edges(objects=True) }
             
     # Remove all the annotations about the graph
     def clear_annotations(self) -> None:
@@ -362,7 +440,7 @@ class Graph():
         for edge_name in self.edges():
             
             # Get the colour of this edge
-            edge_colour = self.get_edge(edge_name).colour
+            edge_colour = self.get_edge(*edge_name).colour
         
             # Update the colour assignment
             colours.update({ edge_name : edge_colour })
@@ -859,20 +937,23 @@ class Graph():
         
         # Check if we have a self loop, where the source IS the destination
         if sourcev == destv:
+            
+            # Only add if the edge doesn't exist, otherwise just quit
+            if AtoB is None:
 
-            # Create the selflooping arrow - we need the arrowhead
-            selfloop_arrowhead, visual_edge, midpoint_x, midpoint_y = selfloop_arrow(sourcev,0.5, self.ax, edgecolour, 
-                                                        linestyle=linestyle, background_colour=self.background_colour)
-            
-            # Add the edge itself
-            sourcev.add_edge(sourcev, visual_edge, midpoint = [midpoint_x, midpoint_y], edgecolour=edgecolour, weight=weight,
-                             linestyle=linestyle)
-            
-            # Grab the edge so we can add the arrowhead to it as well
-            edge_just_added = self.get_edge(sourcev.name, sourcev.name)
-            
-            # Add the arrowhead to the edge as well so we can keep track of it
-            edge_just_added.plotrep["selfloop_arrow"] = selfloop_arrowhead
+                # Create the selflooping arrow - we need the arrowhead
+                selfloop_arrowhead, visual_edge, midpoint_x, midpoint_y = selfloop_arrow(sourcev,0.5, self.ax, edgecolour, 
+                                                            linestyle=linestyle, background_colour=self.background_colour)
+                
+                # Add the edge itself
+                sourcev.add_edge(sourcev, visual_edge, midpoint = [midpoint_x, midpoint_y], edgecolour=edgecolour, weight=weight,
+                                linestyle=linestyle)
+                
+                # Grab the edge so we can add the arrowhead to it as well
+                edge_just_added = self.get_edge(sourcev.name, sourcev.name)
+                
+                # Add the arrowhead to the edge as well so we can keep track of it
+                edge_just_added.plotrep["selfloop_arrow"] = selfloop_arrowhead
             
             # Now the edge is fully added so we don't need to do anything else
             return

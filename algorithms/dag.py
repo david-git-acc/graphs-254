@@ -27,11 +27,11 @@ def topological_sort(GA, start_vertex_name = None, highlight_colour : str = "gol
     # Remember the current assignment of colours so we can update them back once we've finished DFS
     current_colours = GA.get_vertex_colours(G)
     
-    GA.annotate(G, f"To determine if {G.name} is a DAG, we will first need the DFS finish numbers on {G.name}.")
+    GA.annotate(G, f"To determine if {G.name} is a DAG, we will first need the DFS finish numbers of {G.name}.")
     GA.save_state()
     
     # Run DFS on the graph to get the DFS finish numbers
-    dfs_finish_numbers,_ = GA.run_algorithm(dfs, graph=G, start_vertex_name=start_vertex_name, highlight_colour=highlight_colour, 
+    dfs_finish_numbers,_,_ = GA.run_algorithm(dfs, graph=G, start_vertex_name=start_vertex_name, highlight_colour=highlight_colour, 
                                           finish_colours=finish_colours, kill_existing=False, capture=GA.capturing, save_video = False)
     
     # The topological ordering of G = number of vertices - finish_number + 1, so we need the number of vertices n

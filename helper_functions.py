@@ -126,7 +126,9 @@ def curved_directed_edge_arrow(sourcev, destv, d : float, ax, edgecolour : str =
     arrowsize = sourcev.owner.arrowsize
     
     # The index of the arrow determines how far along the line it is 
-    arrow_index = int( 0.94* (D-sourcev.radius) * res / D )
+    # 0.94 is an approximation of how far along the line we need to reduce by 
+    # so that the arrow doesn't clip with the vertex circle
+    arrow_index = int( 0.9* (D-sourcev.radius) * res / D )
     
     # Determine the x and y coordinates of the arrow
     arrow_X = remapped_X[arrow_index]
@@ -141,8 +143,8 @@ def curved_directed_edge_arrow(sourcev, destv, d : float, ax, edgecolour : str =
                      color=edgecolour, 
                      head_length = arrowsize, 
                      head_width = arrowsize, 
-                     linewidth=0.25,
-                     
+                     linewidth=0.25, 
+                     clip_on= False,            
                      zorder=0)
     
    
@@ -294,3 +296,57 @@ def paragraphise(text : str, characters_per_line : int):
     
     # Don't forget to turn it back into string format
     return " ".join(text_words)
+
+
+# Save all the important graph information about a graph
+def save_graph_metadata(G) -> tuple:
+    
+    vertex_highlights = G.get_all_vertex_highlights()
+    edge_highlights = G.get_all_edge_highlights()
+    
+    vertex_colours = G.get_vertex_colours()
+    edge_colours = G.get_edge_colours()
+    
+    return (vertex_highlights, edge_highlights, vertex_colours, edge_colours)
+
+# Load important information about a graph into the graph
+# Used to return a graph's properties to its original values
+def load_graph_metadata(G,metainfo) -> None:
+    
+    G.clear_highlights()
+    
+    G.assign_vertex_highlights(metainfo[0])
+    G.assign_edge_highlights(metainfo[1])
+    G.assign_vertex_colours(metainfo[2])
+    G.assign_edge_colours(metainfo[3])
+    
+    
+def get_n_colours(n : int, cmap : str = "hsv", 
+                  cmin : float = 0.075, cmax : float = 0.925) -> list[tuple[float,float,float,float]]:
+    """
+    Given an integer n and a colourmap cmap, provide n equally distributed colours from cmap.
+
+    Args:
+        n (int): the number of colours to be obtained.
+        cmap (str, optional): the colour map to use. Defaults to "hsv".
+        cmin (float, optional): the left interval bound of colours to use. Defaults to 0.1.
+        cmax (float, optional): the right interval bound of colours to use. Defaults to 0.9.
+
+    Returns:
+        list[tuple[float,float,float,float]]: a list of n equally distributed colour values in RGBA format.
+    """
+    
+    # These are the equally distributed intervals we will use to get the colours we want.
+    colour_intervals = np.linspace(cmin,cmax,n)
+    
+    # Get the colour map we want to use
+    cmap = plt.get_cmap(cmap)
+    
+    # This gives us the colours in numpy array format
+    colours_nparr = cmap(colour_intervals)
+    
+    # Convert into tuple format
+    colours = [ tuple(colour) for colour in colours_nparr]
+    
+    # Apply the colour map and give it back to the user
+    return colours

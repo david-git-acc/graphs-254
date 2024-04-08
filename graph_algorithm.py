@@ -3,10 +3,13 @@ import matplotlib.pyplot as plt
 from graph import Graph
 from graph_building_methods import create_graph
 from helper_functions import paragraphise
+from algorithms.bfs import *
 from algorithms.dfs import *
 from algorithms.dag import *
 from algorithms.bipartiteness import *
 from algorithms.scc import *
+from algorithms.bcc import *
+from algorithms.fordfulk import *
 from algorithm_video_maker import make_video
 import os, shutil
 
@@ -231,62 +234,43 @@ class Graph_algorithm():
         
         return algorithm_result
         
+
+
 s = ( 
 '''
+       1         4
 
-    A
+s      2         5      t
 
-    B   
-    
-    C
-
-D       E
-
-G   F   H
-        
+       3         6       
 ''' )
 
 
-edges = '''(A,B),(B,C),(C,D),(D,F),(F,D),(E,F),(F,E),(C,E),(D,G),(E,H),{A,A},{D,E}'''
-    
 
+edges = '''(s,1),(s,2),(s,3),(1,4),(1,5),(1,2),(2,5),(2,3),(3,6),(4,t),(4,5),(5,t),(5,6),(6,t),(6,2)'''
 
 # Example weights
-weights =list((np.random.rand(17)*100).astype(int))
+weights =[10,5,15,9,15,4,8,4,16,10,15,10,15,10,6]#list((np.random.rand(17)*100).astype(int))
 
 # Build the graph according to the vertex schematic, edges and weights
-G = create_graph(s, edges, weights, vertexcolour="pink", background_colour="skyblue", edgecolour="purple",
-                 edge_textcolour="brown",vertex_textcolour="black")
+G = create_graph(s, edges, weights, vertexcolour="orange")
 
 
 
-# I = H.clone("I")
+
+flows = {edge_name : 0 for edge_name in G.edges()}
+capacities = { edge_name : G.get_edge(*edge_name).weight for edge_name in G.edges()}
+
 
 # Instantiate the graph algorithm on the graph
 GA = Graph_algorithm()
 
-plt.savefig("test.png")
-
-G.highlight_edge(("E","D"),"gold")
-G.highlight_edge(("F","E"), "green")
-G.highlight_edge(("E","F"), "purple")
-G.highlight_edge(("A","B"),"lime")
-G.highlight_edge(("C","F"), "brown")
-G.highlight_edge(("A","A"), "pink")
-
-plt.savefig("test2.png")
-
-H = reverse_graph(G, "H")
-
-GA.switch_to_graph(H)
-
-plt.savefig("test3.png")
+print(GA.run_algorithm(ford_fulkerson, graph=G, source_name="s",target_name="t"))
 
 
 
-# G.rename_vertex("O","OP")
-# G.move_vertex("OP", (0.95,0.95))  z^n - 1 = 0
 
+# print( GA.run_algorithm(scc_algorithm, graph=G, seconds_per_image=1, capture=True) )
 
 
 

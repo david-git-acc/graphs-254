@@ -40,6 +40,44 @@ class Edge():
         # If no colour is specified then let it be the default
         if colour is None: colour = self.owner.edgecolour
         
+    
+    def clone(self, source_name : str, dest_name : str) -> None: 
+        """
+        Add a copy of this edge between a specified pair of vertices in the graph.
+
+        Args:
+            source_name (str): The name of the source vertex for this edge.
+            dest_name (str): The name of the destination vertex for this edge.
+            
+        Raises:
+            Exception: the edge (source_name, dest_name) already exists in the graph.
+        """
+        
+        # Get all the highlighting information for this edge
+        this_edge_highlights = self.highlight_properties()
+        
+        # Also get the edge linestyle so we can copy this too
+        linestyle = self.plotrep["visual"].get_linestyle()
+            
+        # Can't copy to an edge that already exists, as this is potentially undefined behaviour
+        if self.owner.get_edge(source_name,dest_name) is not None: 
+            raise Exception(f"edge {source_name}-{dest_name} already exists in {self.owner.name}")
+        
+        # Duplicate the edge
+        self.owner.add_edge(source_name, dest_name, both=self.is_bidirectional(), 
+                            weight = self.weight, edgecolour = self.colour, linestyle =
+                            self.linestyle)
+        
+        # This has to be applied manually 
+        self.owner.get_edge(source_name, dest_name).set_textcolour(self.textcolour)
+        self.owner.get_edge(source_name, dest_name).set_linestyle(linestyle)
+        
+        # Apply the highlight of this edge
+        self.owner.highlight_edge((source_name, dest_name), **this_edge_highlights)
+    
+
+        
+    
     # Determine if this edge is a self-loop, where the start and end vertices are the same
     def is_self_loop(self) -> bool: return self.source == self.destination
         
@@ -169,7 +207,8 @@ class Edge():
             
             # Generate the new self loop edge 
             new_edge_arrow, new_edge, _, _ = selfloop_arrow(self.source, 0.5, self.ax, 
-                                                            self.colour, linestyle = self.linestyle)
+                                                            self.colour, linestyle = self.linestyle,
+                                                            background_colour=self.owner.background_colour)
             
             # Since the last two cases don't have arrows we do it separately here
             self.plotrep["selfloop_arrow"] = new_edge_arrow

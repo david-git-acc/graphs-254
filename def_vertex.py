@@ -99,6 +99,9 @@ class Vertex():
     # Only turn "safe" off if you know what you're doing!
     def rename(self, newname : str , safe : bool = True) -> None:
         
+        # Make sure the name is in string format to ensure type consistency
+        newname = str(newname)
+        
         # If the new name is actually the same, then we don't need to do anything        
         if newname == self.name: return
         
