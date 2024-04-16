@@ -32,7 +32,7 @@ def get_images(filepath : str) -> list[np.ndarray]:
     
 
 # Create a video 
-def make_video(filename : str, filepath : str, fps : int = 1, seconds_per_image : float = 2.5 ) -> None:
+def make_video(filename : str, filepath : str, fps : int = 1, seconds_per_image : float = 2 ) -> None:
     
     # First we need to actually get hold of the images to animate
     images : list[np.ndarray] = get_images(filepath)

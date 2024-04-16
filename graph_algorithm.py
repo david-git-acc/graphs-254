@@ -10,6 +10,7 @@ from algorithms.bipartiteness import *
 from algorithms.scc import *
 from algorithms.bcc import *
 from algorithms.fordfulk import *
+from algorithms.mst import *
 from algorithm_video_maker import make_video
 import os, shutil
 
@@ -204,7 +205,7 @@ class Graph_algorithm():
     # args and kwargs - you can specify the specific arguments to the algorithm, if it accepts any
     def run_algorithm(self, algorithm, *args, graph : Graph = None, capture : bool = True,
                       kill_existing : bool = True, save_video : bool = True,
-                      fps : int = 1, seconds_per_image : float = 2.5, **kwargs) -> None:
+                      fps : int = 1, seconds_per_image : float = 2, **kwargs) -> None:
         
         # Store the original capturing in a variable - we'll override the 
         # object's capturing preference for now but set it back after we finish
@@ -235,42 +236,44 @@ class Graph_algorithm():
         return algorithm_result
         
 
-
 s = ( 
 '''
-       1         4
+                 W
+        R                   V
+        
+    P       S       X               J
+    
+    Q       T               K   
+        
+        U           L               O
 
-s      2         5      t
-
-       3         6       
+    Y       Z           M       N
+                        
 ''' )
 
 
 
-edges = '''(s,1),(s,2),(s,3),(1,4),(1,5),(1,2),(2,5),(2,3),(3,6),(4,t),(4,5),(5,t),(5,6),(6,t),(6,2)'''
+edges = '''(R,S),(R,P),(P,Q),(Q,U),(U,Y),(Y,Z),(Z,U),(U,T),(T,S),(S,X),(X,W),(W,V),(X,V),(X,K),(V,K),(K,L),(K,M),(L,M),
+        (K,N),(O,J),(K,O),(K,J), (Z,L), (R,W), (Z,M), (V,J), (M,N),(N,O)
+           '''.replace("(","{").replace(")","}")
 
-# Example weights
-weights =[10,5,15,9,15,4,8,4,16,10,15,10,15,10,6]#list((np.random.rand(17)*100).astype(int))
+
+           
+weights = list( (np.random.rand(120) * 100).astype(int) )
 
 # Build the graph according to the vertex schematic, edges and weights
 G = create_graph(s, edges, weights, vertexcolour="orange")
 
 
+# # Instantiate the graph algorithm on the graph
+# GA = Graph_algorithm()
+
+G.highlight_edge(("L","K"),"gold")
+plt.savefig("haha.png")
+
+# GA.run_algorithm(mst_meta_algorithm, graph=G, seconds_per_image=2)
 
 
-flows = {edge_name : 0 for edge_name in G.edges()}
-capacities = { edge_name : G.get_edge(*edge_name).weight for edge_name in G.edges()}
-
-
-# Instantiate the graph algorithm on the graph
-GA = Graph_algorithm()
-
-print(GA.run_algorithm(ford_fulkerson, graph=G, source_name="s",target_name="t"))
-
-
-
-
-# print( GA.run_algorithm(scc_algorithm, graph=G, seconds_per_image=1, capture=True) )
 
 
 

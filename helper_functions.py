@@ -1,6 +1,45 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+def bidirectional_edge(sourcev, destv, 
+                       edgecolour : str = "black", 
+                       alpha : float = 0,
+                       linewidth : float = 1,
+                       linestyle : str = "solid",
+                       zorder : int = 0):
+
+    """
+    Creates a bidrectional edge from a source vertex (sourcev) to another vertex (destv).
+
+    Returns: the matplotlib line2D object
+    """
+    
+    # Get all the important information
+    x_A, y_A, r_A = sourcev.x,sourcev.y,sourcev.radius
+    x_B,y_B,r_B = destv.x, destv.y , destv.radius
+    
+    # The angles to determine where to start plotting and where to stop
+    theta1 = np.angle((x_B-x_A) + (y_B-y_A)*1j)
+    theta2 = np.pi/2 - theta1
+    
+    # Get the axis to plto on
+    ax = sourcev.owner.ax
+    
+    # Plot the edge itself 
+    line = ax.plot([x_A , x_B ], 
+                   [y_A , y_B  ],
+                   alpha=alpha,
+                   linewidth=linewidth,
+                   color = edgecolour,
+                   linestyle = linestyle, 
+                   zorder =zorder,
+                   clip_on = False)
+
+    # Return it to use as plot representation
+    return line[0]
+
+
 # Rotate the point (x_A,y_A) by angle theta (radians) with respect to the point (x_B,y_B)
 def rotate(x_A : float,y_A : float,x_B : float,y_B : float,theta : float) -> tuple[float,float]:
     

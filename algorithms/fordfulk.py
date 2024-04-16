@@ -133,7 +133,19 @@ def add_reverse_flows(graph : Graph, capacities) -> None:
         
         
 def ford_fulkerson(GA, source_name : str, target_name : str, 
-                   capacities : dict[tuple[str,int]] = None, fullcolour: str = "red") -> None:
+                   capacities : dict[tuple[str,int]] = None, fullcolour: str = "red") -> tuple[dict[tuple[str,str], int], int]:
+    
+    """
+    Perform the Ford Fulkerson algorithm on a flow network to obtain the maximum flow.
+
+    Raises: 
+        Exception: input graph is not a valid flow network.
+
+    Returns:
+        a tuple, where the first element is a dictionary mapping storing the allocated flow to each edge 
+        and the second element is an integer representing the maximum flow of the network.
+        
+    """
     
     
     G : Graph = GA.get_current_graph()
